@@ -1,0 +1,54 @@
+# =============================================================================
+# JORNAL DIGITAL FEDERADO - .gitignore Oficial
+# =============================================================================
+
+# Arquivos sensíveis de ambiente e segredos locais
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# Rust / Cargo
+backend/target/
+**/target/
+Cargo.lock
+
+# Node / Next.js / Frontend
+frontend/node_modules/
+**/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+.npm
+.yarn/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python / Scripts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Dados locais e temporários
+tmp/
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo

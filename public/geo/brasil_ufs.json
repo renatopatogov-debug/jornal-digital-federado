@@ -1,0 +1,950 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "11",
+        "nome": "Rondônia",
+        "uf": "RO"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "12",
+        "nome": "Acre",
+        "uf": "AC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "13",
+        "nome": "Amazonas",
+        "uf": "AM"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "14",
+        "nome": "Roraima",
+        "uf": "RR"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "15",
+        "nome": "Pará",
+        "uf": "PA"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "16",
+        "nome": "Amapá",
+        "uf": "AP"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "17",
+        "nome": "Tocantins",
+        "uf": "TO"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "21",
+        "nome": "Maranhão",
+        "uf": "MA"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "22",
+        "nome": "Piauí",
+        "uf": "PI"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "23",
+        "nome": "Ceará",
+        "uf": "CE"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "24",
+        "nome": "Rio Grande do Norte",
+        "uf": "RN"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "25",
+        "nome": "Paraíba",
+        "uf": "PB"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "26",
+        "nome": "Pernambuco",
+        "uf": "PE"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "27",
+        "nome": "Alagoas",
+        "uf": "AL"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "28",
+        "nome": "Sergipe",
+        "uf": "SE"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "29",
+        "nome": "Bahia",
+        "uf": "BA"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "31",
+        "nome": "Minas Gerais",
+        "uf": "MG"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "32",
+        "nome": "Espírito Santo",
+        "uf": "ES"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "33",
+        "nome": "Rio de Janeiro",
+        "uf": "RJ"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "35",
+        "nome": "São Paulo",
+        "uf": "SP"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "41",
+        "nome": "Paraná",
+        "uf": "PR"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "42",
+        "nome": "Santa Catarina",
+        "uf": "SC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "43",
+        "nome": "Rio Grande do Sul",
+        "uf": "RS"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "50",
+        "nome": "Mato Grosso do Sul",
+        "uf": "MS"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "51",
+        "nome": "Mato Grosso",
+        "uf": "MT"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "52",
+        "nome": "Goiás",
+        "uf": "GO"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "53",
+        "nome": "Distrito Federal",
+        "uf": "DF"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -15.0
+            ],
+            [
+              -46.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -16.0
+            ],
+            [
+              -47.0,
+              -15.0
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

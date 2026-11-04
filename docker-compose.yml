@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jornal_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jornal_federado
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/20261102000001_schema_inicial.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./migrations/20261102000002_seeds_fundacionais.sql:/docker-entrypoint-initdb.d/02_seeds.sql:ro
+      - ./migrations/20261102000003_webauthn_passkeys.sql:/docker-entrypoint-initdb.d/03_passkeys.sql:ro
+      - ./migrations/20261102000004_suporte_multimidia_e_paper_news.sql:/docker-entrypoint-initdb.d/04_multimidia.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jornal_federado"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jornal_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: jornal_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jornal_network
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  jornal_network:
+    driver: bridge

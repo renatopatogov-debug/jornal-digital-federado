@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "1200001",
+        "nome": "Capital Acre",
+        "uf": "AC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.5,
+              -15.5
+            ],
+            [
+              -47.2,
+              -15.5
+            ],
+            [
+              -47.2,
+              -15.8
+            ],
+            [
+              -47.5,
+              -15.8
+            ],
+            [
+              -47.5,
+              -15.5
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

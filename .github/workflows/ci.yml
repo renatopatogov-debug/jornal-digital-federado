@@ -1,0 +1,82 @@
+name: CI/CD Pipeline — Jornal Digital Federado
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://postgres:postgres_ci@localhost:5432/jornal_federado_ci
+  REDIS_URL: redis://localhost:6379
+
+jobs:
+  code-quality:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Verificar Formatação (cargo fmt)
+        working-directory: backend
+        run: cargo fmt --all -- --check
+
+      - name: Análise Estática (cargo clippy)
+        working-directory: backend
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  database-integrity:
+    name: Database Migrations & Constraints Test
+    runs-on: ubuntu-latest
+    needs: [code-quality]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: jornal_federado_ci
+          POSTGRES_PASSWORD: postgres_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar SQLx CLI
+        run: cargo install sqlx-cli --no-default-features --features rustls,postgres
+
+      - name: Executar Migrações DDL
+        working-directory: backend
+        run: sqlx migrate run --source ../migrations
+
+      - name: Aplicar Seeds Fundacionais
+        run: psql $DATABASE_URL -f migrations/20261102000002_seeds_fundacionais.sql
+
+  geojson-validation:
+    name: GeoJSON IBGE Integrity Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validar e Gerar Malha das 27 UFs
+        run: python scripts/pipeline_ibge_geojson.py
