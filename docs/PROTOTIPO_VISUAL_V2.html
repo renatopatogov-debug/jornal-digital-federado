@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="papel">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>O FEDERADO — v2 (edição com sal) — Leitor, Mesa de Redação & Chancelaria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+/* =========================================================================
+   O FEDERADO — SISTEMA EDITORIAL v2 ("com sal")
+   Princípios: tinta única + vermelho de carimbo; metadados em caixa alta
+   com fios, nunca em chips; textura de papel; ornamentos tipográficos.
+   ========================================================================= */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+input, select, textarea { font: inherit; color: inherit; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; }
+
+:root, [data-theme="papel"] {
+  --bg-page:   #ece5d3;   /* mesa onde o jornal repousa */
+  --bg-paper:  #f7f2e4;   /* folha */
+  --bg-wash:   #efe8d6;   /* reservas suaves */
+  --ink:       #211d17;   /* tinta tipográfica */
+  --ink-soft:  #6a6152;   /* segunda tinta */
+  --rule:      #2a251d;   /* fio principal */
+  --rule-soft: #c0b59d;   /* fio fino */
+  --accent:    #8f1f17;   /* vermelho de carimbo */
+  --input:     #fbf8ee;
+  --vote-up-bg:     #d7ebd9;   /* verde pastel suave */
+  --vote-up-border: #6fa878;   /* borda verde sálvia */
+  --vote-up-ink:    #153d1e;   /* tinta verde escura */
+  --vote-up-bar:    #4d8a57;
+  --vote-down-bg:     #f8dcd9; /* vermelho pastel suave */
+  --vote-down-border: #d48b84; /* borda terracota suave */
+  --vote-down-ink:    #5e1c18; /* tinta vermelha escura */
+  --vote-down-bar:    #a33b33;
+  --sombra:    0 22px 44px rgba(43, 34, 20, .22);
+  --grao: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+}
+[data-theme="sepia"] {
+  --bg-page:   #dcc9a8;
+  --bg-paper:  #f0e3c8;
+  --bg-wash:   #e2d1ae;
+  --ink:       #241a0f;
+  --ink-soft:  #6f5b41;
+  --rule:      #3a2b1a;
+  --rule-soft: #b39c76;
+  --accent:    #7c2c0e;
+  --input:     #f6ecd5;
+  --vote-up-bg:     #cfdec8;
+  --vote-up-border: #6d936e;
+  --vote-up-ink:    #18341b;
+  --vote-up-bar:    #4a7b53;
+  --vote-down-bg:     #eed4c5;
+  --vote-down-border: #be826f;
+  --vote-down-ink:    #552216;
+  --vote-down-bar:    #93422a;
+  --sombra:    0 22px 44px rgba(60, 40, 12, .26);
+  --grao: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+}
+[data-theme="dark"] {
+  --bg-page:   #121110;
+  --bg-paper:  #1b1a17;
+  --bg-wash:   #242218;
+  --bg-wash:   #242219;
+  --ink:       #e9e2d0;
+  --ink-soft:  #a29a86;
+  --rule:      #776e5c;
+  --rule-soft: #423d32;
+  --accent:    #e0685a;
+  --input:     #161512;
+  --vote-up-bg:     #1e3825;
+  --vote-up-border: #447b52;
+  --vote-up-ink:    #b6ecc0;
+  --vote-up-bar:    #4a995a;
+  --vote-down-bg:     #3c1d1a;
+  --vote-down-border: #7f3b36;
+  --vote-down-ink:    #f5b8b2;
+  --vote-down-bar:    #ba4c44;
+  --sombra:    0 22px 44px rgba(0, 0, 0, .55);
+  --grao: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.32'/></svg>");
+}
+
+body {
+  background-color: var(--bg-page);
+  background-image: var(--grao);
+  color: var(--ink);
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  font-size: 16px;
+  line-height: 1.5;
+  padding: 18px 16px 56px;
+  transition: background-color .25s ease, color .25s ease;
+}
+::selection { background: var(--ink); color: var(--bg-paper); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--rule-soft); }
+::-webkit-scrollbar-track { background: transparent; }
+
+.f-display { font-family: 'Playfair Display', Georgia, serif; }
+.f-body    { font-family: 'Source Serif 4', Georgia, serif; }
+.f-mono    { font-family: 'IBM Plex Mono', 'Courier New', monospace; }
+.caps      { text-transform: uppercase; letter-spacing: .16em; }
+.is-hidden { display: none !important; }
+
+/* ---------- fios editoriais ---------- */
+.fio3        { border-top: 3px solid var(--rule); }
+.fio-thin    { border-top: 1px solid var(--rule-soft); }
+.fio-duplo   { border-top: 3px double var(--rule); }
+.thick-thin  { height: 7px; border-top: 3px solid var(--rule); border-bottom: 1px solid var(--rule); }
+
+/* ---------- barra do sistema (índice de seções) ---------- */
+.topbar {
+  width: min(1280px, 100%); margin: 0 auto 14px;
+  background-color: var(--bg-paper); background-image: var(--grao);
+  border: 1px solid var(--rule);
+  box-shadow: var(--sombra);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px 18px; padding: 9px 14px;
+  position: relative; z-index: 2;
+}
+.topbar .sys { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+.topbar .sys b { font-weight: 600; }
+.topbar .sys .diamond { color: var(--accent); }
+.topbar nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.tab { padding: 5px 2px; border-bottom: 2px solid transparent; color: var(--ink-soft); white-space: nowrap; }
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.theme-group { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.theme-btn { color: var(--ink-soft); padding: 3px 2px; border-bottom: 2px solid transparent; }
+.theme-btn:hover { color: var(--ink); }
+.theme-btn.active { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+
+/* ---------- a folha ---------- */
+.sheet {
+  width: min(1280px, 100%); margin: 0 auto;
+  background-color: var(--bg-paper); background-image: var(--grao);
+  border: 1px solid var(--rule);
+  box-shadow: var(--sombra);
+  position: relative; z-index: 1;
+  padding: clamp(18px, 3vw, 40px) clamp(16px, 3.4vw, 46px);
+}
+.sheet::before {
+  content: ""; position: absolute; inset: 6px;
+  border: 1px solid var(--rule-soft); pointer-events: none;
+}
+
+/* ---------- masthead ---------- */
+.masthead { text-align: center; }
+.masthead .ficha {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 18px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-soft);
+  border-bottom: 1px solid var(--rule-soft); padding-bottom: 7px;
+}
+.masthead .nome {
+  font-family: 'Playfair Display', Georgia, serif; font-weight: 900;
+  font-size: clamp(52px, 9.5vw, 118px); line-height: .96; letter-spacing: .005em;
+  margin: 18px 0 6px; text-transform: uppercase;
+}
+.masthead .nome .orn { color: var(--accent); font-size: .38em; vertical-align: .5em; letter-spacing: 0; }
+.masthead .lema { font-style: italic; font-size: clamp(13px, 1.6vw, 17px); color: var(--ink-soft); margin-bottom: 16px; }
+.masthead .dateline {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px;
+  border-top: 3px solid var(--rule); border-bottom: 1px solid var(--rule);
+  padding: 7px 2px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+  letter-spacing: .1em; text-transform: uppercase;
+}
+.lnk { text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.lnk:hover { color: var(--accent); }
+.lnk-accent { color: var(--accent); font-weight: 600; }
+.dateline .orn-dia { color: var(--accent); }
+
+/* índice de cadernos — caixa alta com sublinhado, sem chips */
+.cadernos {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 22px;
+  padding: 10px 2px; border-bottom: 1px solid var(--rule-soft);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+}
+.cadernos .rotulo { color: var(--ink-soft); font-weight: 600; margin-right: 6px; }
+.navbtn { text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); padding: 3px 1px; border-bottom: 2px solid transparent; }
+.navbtn:hover { color: var(--ink); }
+.navbtn.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.navbtn .glifo { color: var(--accent); }
+
+/* busca com linha de arquivo */
+.busca {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 12px 2px 4px; border-bottom: 1px solid var(--rule);
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+}
+.busca label { font-weight: 600; white-space: nowrap; }
+.busca input {
+  flex: 1; background: transparent; border: 0; outline: none;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: .04em; color: var(--ink);
+}
+.busca input::placeholder { color: var(--ink-soft); opacity: .75; }
+
+/* ---------- banner do modo eleitoral ---------- */
+.banner-eleitoral {
+  margin: 16px 0 4px; padding: 9px 14px; text-align: center;
+  border-top: 3px solid var(--accent); border-bottom: 1px solid var(--accent);
+  color: var(--accent); font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+}
+
+/* ---------- grade do leitor ---------- */
+.grid-leitor {
+  display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 0 34px;
+  padding-top: 18px;
+}
+.manchete-block { padding-right: 6px; }
+.orelha {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px;
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule-soft);
+  padding: 6px 2px; margin-bottom: 14px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+}
+.orelha b { color: var(--ink); font-weight: 600; }
+h2.manchete {
+  font-family: 'Playfair Display', Georgia, serif; font-weight: 900;
+  font-size: clamp(34px, 4.6vw, 58px); line-height: 1.04; letter-spacing: -.005em;
+  margin-bottom: 12px;
+}
+.subtitulo { font-style: italic; font-size: 17.5px; color: var(--ink-soft); margin-bottom: 18px; line-height: 1.45; }
+
+figure.gravura { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 8px 0 0; margin-bottom: 18px; }
+figure.gravura .prancha { background: var(--bg-wash); border: 1px solid var(--rule-soft); padding: 10px; }
+figure.gravura svg { width: 100%; height: auto; }
+figure.gravura figcaption {
+  font-size: 12.5px; font-style: italic; color: var(--ink-soft);
+  text-align: center; padding: 8px 6px;
+}
+
+.corpo-duas {
+  column-count: 2; column-gap: 30px; column-rule: 1px solid var(--rule-soft);
+  text-align: justify; hyphens: auto; font-size: 15.5px; line-height: 1.62;
+}
+.corpo-duas p + p { margin-top: 12px; text-indent: 1.6em; }
+.dropcap::first-letter {
+  float: left; font-family: 'Playfair Display', Georgia, serif;
+  font-size: 4.6em; line-height: .78; padding: 6px 10px 0 0; font-weight: 900; color: var(--ink);
+}
+.remeter { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin-top: 12px; text-align: right; }
+
+/* apuração / votação — tinta, não pastel */
+.apuracao { border: 1px solid var(--rule); margin-top: 20px; }
+.apuracao .top {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px;
+  border-bottom: 1px solid var(--rule-soft); padding: 8px 12px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+}
+.apuracao .top .hype-num { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--ink); letter-spacing: 0; }
+.apuracao .miolo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; padding: 12px; }
+.votos-botoes { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-ink {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
+  letter-spacing: .14em; text-transform: uppercase;
+  border: 1.5px solid var(--ink); padding: 9px 16px; color: var(--ink);
+  transition: background .12s ease, color .12s ease, transform .06s ease;
+}
+.btn-ink:hover { background: var(--ink); color: var(--bg-paper); }
+.btn-ink:active { transform: translate(1px, 1px); }
+.btn-ink.solid { background: var(--ink); color: var(--bg-paper); }
+.btn-ink.solid:hover { background: var(--accent); border-color: var(--accent); }
+.btn-ink.danger { border-color: var(--accent); color: var(--accent); }
+.btn-ink.danger:hover { background: var(--accent); color: var(--bg-paper); }
+.btn-ink.pressed { background: var(--accent); border-color: var(--accent); color: var(--bg-paper); }
+.btn-ink:disabled { opacity: .45; cursor: not-allowed; }
+.btn-ink:disabled:hover { background: transparent; color: var(--ink); }
+.btn-ink.pressed:disabled { opacity: 1; }
+
+/* Botões de Voto com Cores Pastéis Harmonizadas ao Papel de Imprensa */
+.btn-up-vote {
+  background: var(--vote-up-bg);
+  border-color: var(--vote-up-border);
+  color: var(--vote-up-ink);
+}
+.btn-up-vote:hover {
+  background: var(--vote-up-ink);
+  color: var(--bg-paper);
+  border-color: var(--vote-up-ink);
+}
+.btn-up-vote.pressed {
+  background: var(--vote-up-bar) !important;
+  border-color: var(--vote-up-bar) !important;
+  color: #fff !important;
+}
+
+.btn-down-vote {
+  background: var(--vote-down-bg);
+  border-color: var(--vote-down-border);
+  color: var(--vote-down-ink);
+}
+.btn-down-vote:hover {
+  background: var(--vote-down-ink);
+  color: var(--bg-paper);
+  border-color: var(--vote-down-ink);
+}
+.btn-down-vote.pressed {
+  background: var(--vote-down-bar) !important;
+  border-color: var(--vote-down-bar) !important;
+  color: #fff !important;
+}
+
+.saldo { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .1em; color: var(--ink-soft); text-transform: uppercase; }
+.saldo b { color: var(--ink); font-size: 13px; }
+.votebar { display: flex; height: 11px; border: 1px solid var(--rule); margin: 0 12px 12px; overflow: hidden; }
+.votebar .vb-up { background: var(--vote-up-bar); height: 100%; transition: width .3s ease; }
+.votebar .vb-down { background: var(--vote-down-bar); height: 100%; transition: width .3s ease; }
+.nota-voto { padding: 0 12px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--ink-soft); letter-spacing: .04em; }
+.nota-voto.ok { color: var(--accent); font-weight: 600; }
+
+/* coluna lateral */
+.coluna-lateral { border-left: 1px solid var(--rule-soft); padding-left: 24px; display: flex; flex-direction: column; }
+.col-titulo {
+  font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 21px; line-height: 1.15; margin: 4px 0 8px;
+}
+.kicker {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--accent);
+  display: flex; align-items: center; gap: 8px;
+}
+.kicker::after { content: ""; flex: 1; border-top: 1px solid var(--rule-soft); }
+.bulletin { margin-bottom: 18px; }
+.bulletin ul { list-style: none; margin-top: 8px; }
+.bulletin li {
+  display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dotted var(--rule-soft);
+  font-size: 13.5px; line-height: 1.4;
+}
+.bulletin .hora { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--accent); font-weight: 600; padding-top: 3px; white-space: nowrap; }
+.coluna-secao { padding: 16px 0; border-bottom: 1px solid var(--rule-soft); }
+.coluna-secao:first-child { padding-top: 2px; }
+.coluna-secao .meta-linha {
+  display: flex; justify-content: space-between; gap: 10px; margin-top: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-soft); border-top: 1px solid var(--rule-soft); padding-top: 7px;
+}
+.mini-votos { display: flex; gap: 6px; }
+.mini-votos button {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border: 1px solid var(--rule); color: var(--ink);
+  transition: all .12s ease;
+}
+.mini-btn-up {
+  background: var(--vote-up-bg);
+  border-color: var(--vote-up-border) !important;
+  color: var(--vote-up-ink) !important;
+}
+.mini-btn-up:hover {
+  background: var(--vote-up-bar);
+  color: #fff !important;
+}
+.mini-btn-up.pressed {
+  background: var(--vote-up-bar) !important;
+  color: #fff !important;
+}
+
+.mini-btn-down {
+  background: var(--vote-down-bg);
+  border-color: var(--vote-down-border) !important;
+  color: var(--vote-down-ink) !important;
+}
+.mini-btn-down:hover {
+  background: var(--vote-down-bar);
+  color: #fff !important;
+}
+.mini-btn-down.pressed {
+  background: var(--vote-down-bar) !important;
+  color: #fff !important;
+}
+.coluna-presidente p { font-size: 13.5px; font-style: italic; line-height: 1.55; color: var(--ink); }
+.coluna-presidente p + p { margin-top: 8px; text-indent: 1.4em; }
+.byline { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin-top: 10px; }
+.recorte-1952 { border: 1px solid var(--rule); padding: 14px; background-color: var(--bg-wash); background-image: var(--grao); position: relative; }
+.recorte-1952 .ano { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 30px; color: var(--accent); line-height: 1; }
+.recorte-1952 blockquote { font-style: italic; font-size: 14px; line-height: 1.5; margin-top: 6px; }
+.recorte-1952 .fonte { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin-top: 8px; }
+.arquivo-lista { list-style: none; margin-top: 8px; }
+.arquivo-lista li { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dotted var(--rule-soft); font-size: 13px; }
+.arquivo-lista .ano-a { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; color: var(--ink-soft); padding-top: 3px; white-space: nowrap; }
+.inscricao-mini { margin-top: 4px; }
+.inscricao-mini .linha-email { display: flex; gap: 10px; align-items: baseline; margin-top: 10px; border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
+.inscricao-mini input { flex: 1; background: transparent; border: 0; outline: none; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+.inscricao-mini .btn-ink { padding: 7px 12px; font-size: 10px; }
+.fechar-coluna { margin-top: auto; padding-top: 16px; }
+.selo {
+  width: 92px; height: 92px; border-radius: 50%;
+  border: 2px solid var(--accent); box-shadow: inset 0 0 0 4px var(--bg-paper), inset 0 0 0 5px var(--accent);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  color: var(--accent); font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; font-weight: 600;
+  letter-spacing: .18em; text-transform: uppercase; text-align: center; transform: rotate(-8deg);
+  margin: 0 auto;
+}
+.selo .estrela { font-size: 13px; letter-spacing: 0; }
+
+/* rodapé da página */
+.pe-da-pagina { margin-top: 26px; border-top: 3px solid var(--rule); padding-top: 8px; }
+.pe-da-pagina .linha {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 18px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft);
+}
+.pe-da-pagina .linha b { color: var(--ink); font-weight: 600; }
+.empty-feed {
+  border: 1px dashed var(--rule); padding: 34px 20px; text-align: center;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft);
+}
+
+/* breves do rodapé da primeira página */
+.breves { margin-top: 22px; border-top: 3px solid var(--rule); padding-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 26px; }
+.breves .kicker { font-size: 9px; }
+.breves p { font-size: 12.5px; line-height: 1.5; margin-top: 7px; color: var(--ink); }
+.breves .breve + .breve { border-left: 1px solid var(--rule-soft); padding-left: 26px; }
+
+/* ---------- banner + redação ---------- */
+.cabeco-secao { padding-bottom: 14px; margin-bottom: 20px; border-bottom: 3px solid var(--rule); }
+.cabeco-secao .kicker { color: var(--ink-soft); }
+.cabeco-secao .kicker b { color: var(--accent); }
+.cabeco-secao h2 { font-family: 'Playfair Display', serif; font-weight: 900; font-size: clamp(26px, 3.4vw, 40px); text-transform: uppercase; letter-spacing: .01em; margin-top: 6px; }
+.cabeco-secao .abaixo { font-style: italic; color: var(--ink-soft); font-size: 14.5px; margin-top: 4px; }
+.cabeco-secao .quem { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 10px 20px; }
+.ficha-mono {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  border: 1px solid var(--rule); padding: 7px 12px; color: var(--ink);
+}
+.ficha-mono b { color: var(--accent); }
+
+.grid-redacao { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 30px; }
+.painel-titulo {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase;
+  border-bottom: 1px solid var(--rule); padding-bottom: 7px; margin-bottom: 16px;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+}
+.painel-titulo .glifo { color: var(--accent); }
+.campo { margin-bottom: 16px; }
+.campo label {
+  display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 5px;
+}
+.campo label .req { color: var(--accent); }
+.campo input[type="text"], .campo input[type="email"], .campo select {
+  width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--rule);
+  padding: 6px 2px; outline: none;
+}
+.campo input:focus, .campo textarea:focus, .busca input:focus, .inscricao-mini input:focus { border-bottom-color: var(--accent); }
+.campo input[readonly] { color: var(--ink-soft); font-style: italic; }
+.campo select { appearance: none; -webkit-appearance: none; cursor: pointer; }
+.campo textarea {
+  width: 100%; background: transparent; border: 0; outline: none; resize: vertical;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 28px; color: var(--ink);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule-soft) 27px 28px);
+  background-attachment: local; min-height: 196px; padding: 0;
+}
+.contador { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); text-align: right; margin-top: 6px; }
+.duas-col-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 0 22px; }
+
+/* prova de gráfica */
+.prova { border: 1px solid var(--rule); background-color: var(--bg-wash); background-image: var(--grao); padding: 18px 18px 20px; position: relative; }
+.prova .cab-prova {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  border-bottom: 3px solid var(--rule); padding-bottom: 6px; margin-bottom: 14px; padding-right: 96px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft);
+}
+.prova .caderno-prova { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink); }
+.prova-titulo { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 23px; line-height: 1.12; margin-bottom: 8px; }
+.prova-corpo { font-size: 13.5px; line-height: 1.6; text-align: justify; color: var(--ink); white-space: pre-wrap; }
+.prova-corpo.vazio { color: var(--ink-soft); font-style: italic; }
+.carimbo {
+  position: absolute; top: 8px; right: 12px; transform: rotate(7deg);
+  border: 2.5px solid var(--accent); color: var(--accent); padding: 5px 11px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase;
+  opacity: .88; border-radius: 2px;
+}
+.carimbo.pequeno { position: static; display: inline-block; transform: rotate(-3deg); }
+
+/* cascata de estados */
+.cascata-estados {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 0;
+  border-top: 1px solid var(--rule-soft); margin-top: 22px; padding-top: 18px;
+}
+.estado {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+  border: 1.5px solid var(--rule-soft); color: var(--ink-soft); padding: 7px 13px; border-radius: 2px;
+}
+.estado.seta { border: 0; color: var(--ink-soft); padding: 0 6px; letter-spacing: 0; }
+.estado.ativo { border-color: var(--accent); color: var(--accent); background: transparent; box-shadow: inset 0 0 0 1px var(--accent); }
+.estado.feito { border-color: var(--rule); color: var(--ink); }
+.acoes-redacao { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+
+/* ---------- presidência / chancelaria ---------- */
+.balanco {
+  display: flex; flex-wrap: wrap; gap: 0 34px; justify-content: space-between;
+  border-top: 1px solid var(--rule); border-bottom: 3px solid var(--rule);
+  padding: 14px 4px; margin-bottom: 24px;
+}
+.balanco .stat { display: flex; align-items: baseline; gap: 12px; }
+.balanco .num { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 40px; line-height: 1; }
+.balanco .rot { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); max-width: 130px; line-height: 1.5; }
+.balanco .divisor { border-left: 1px solid var(--rule-soft); }
+
+.grid-presidencia { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 30px; align-items: start; }
+
+/* árvore */
+.arvore { margin-top: 6px; }
+.tree-node {
+  border: 1px solid var(--rule); padding: 10px 12px; margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  cursor: pointer; background: transparent; text-align: left; width: 100%;
+  transition: background .1s ease, color .1s ease;
+}
+.tree-node:hover { border-color: var(--accent); }
+.tree-node .tn-main { display: flex; gap: 12px; align-items: baseline; min-width: 0; }
+.tree-node .tn-mark { color: var(--accent); font-size: 15px; flex: none; }
+.tree-node .tn-title { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.tree-node .tn-meta { font-size: 12px; color: var(--ink-soft); font-style: italic; margin-top: 2px; }
+.tree-node .tn-side { display: flex; align-items: center; gap: 8px; flex: none; }
+.tree-node .tn-tag { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; border: 1px solid var(--rule-soft); padding: 3px 7px; color: var(--ink-soft); }
+.tree-node .tn-toggle {
+  border: 1px solid var(--rule); font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+}
+.tree-node .tn-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.tree-node.selected { background: var(--ink); color: var(--bg-paper); border-color: var(--rule); }
+.tree-node.selected .tn-meta { color: var(--bg-paper); opacity: .78; }
+.tree-node.selected .tn-tag { border-color: var(--bg-paper); color: var(--bg-paper); opacity: .85; }
+.tree-node.selected .tn-toggle { border-color: var(--bg-paper); color: var(--bg-paper); }
+.tree-children { margin: 0 0 8px 14px; padding-left: 16px; border-left: 1px solid var(--rule-soft); }
+.tree-children .tree-node { margin-bottom: 6px; }
+.legenda-arvore { border-top: 1px solid var(--rule-soft); margin-top: 12px; padding-top: 10px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+.operacoes { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.operacoes .btn-ink { padding: 7px 12px; font-size: 10px; }
+
+/* ficha do nó */
+.ficha-no { border: 1px solid var(--rule); padding: 16px; }
+.ficha-no .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--rule-soft); padding-bottom: 9px; margin-bottom: 12px; }
+.badge-instancia { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); border: 1.5px solid var(--accent); padding: 4px 9px; border-radius: 2px; }
+.ficha-no h4 { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 21px; line-height: 1.15; }
+.ficha-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; margin: 12px 0; }
+.ficha-grid .rot { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); }
+.ficha-grid .val { font-size: 13.5px; font-weight: 600; margin-top: 2px; }
+.publicantes { border-top: 1px solid var(--rule-soft); margin-top: 4px; }
+.publicantes .cab-pub { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 0 6px; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+.pub-linha { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-top: 1px dotted var(--rule-soft); padding: 7px 0; }
+.pub-linha .quem { font-size: 13px; }
+.pub-linha .quem b { font-weight: 700; }
+.pub-linha .cargo { color: var(--ink-soft); font-style: italic; }
+.pub-linha .det { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: var(--ink-soft); letter-spacing: .06em; margin-top: 1px; }
+.pub-linha .status { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); white-space: nowrap; }
+.cota { border-top: 1px solid var(--rule-soft); margin-top: 8px; padding-top: 10px; }
+.cota .cab-cota { display: flex; justify-content: space-between; align-items: baseline; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+.cota .gauge { height: 13px; border: 1px solid var(--rule); margin: 8px 0 6px; background: repeating-linear-gradient(to right, transparent 0 9px, var(--rule-soft) 9px 10px); }
+.cota .gauge .fill { height: 100%; background: var(--ink); }
+.cota.alerta .gauge .fill { background: var(--accent); }
+.cota.alerta .cab-cota .valor { color: var(--accent); }
+.cota .nota-cota { font-size: 11px; color: var(--ink-soft); font-style: italic; }
+.acoes-no { border-top: 3px solid var(--rule); margin-top: 14px; padding-top: 12px; display: grid; gap: 8px; }
+.acoes-no .rotulo { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* livro de atos */
+.livro-atos { border: 1px solid var(--rule); padding: 14px 16px; margin-top: 22px; }
+.livro-atos .cab-livro { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px double var(--rule); padding-bottom: 8px; margin-bottom: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+.livro-atos .cab-livro .auditado { color: var(--accent); }
+.ato { border-bottom: 1px dotted var(--rule-soft); padding: 7px 0; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; line-height: 1.55; color: var(--ink-soft); }
+.ato:last-child { border-bottom: 0; }
+.ato .ato-num { color: var(--ink); font-weight: 600; }
+.ato.intervencao { color: var(--accent); }
+.ato.intervencao .ato-num { color: var(--accent); }
+
+/* ---------- modal & toast ---------- */
+.modal-root {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 16, 10, .55); padding: 20px;
+}
+.modal-sheet {
+  width: min(560px, 100%); background-color: var(--bg-paper); background-image: var(--grao);
+  border: 1px solid var(--rule);
+  box-shadow: var(--sombra); padding: 26px 28px 24px; position: relative;
+}
+.modal-sheet::before { content: ""; position: absolute; inset: 5px; border: 1px solid var(--rule-soft); pointer-events: none; }
+.modal-kicker { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
+.modal-titulo { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 25px; margin: 8px 0 10px; }
+.modal-corpo { font-size: 14.5px; line-height: 1.6; color: var(--ink); }
+.modal-corpo .campo input, .modal-corpo .campo textarea {
+  width: 100%; background: var(--input); border: 1px solid var(--rule); padding: 8px 10px; outline: none;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;
+}
+.modal-corpo .campo textarea { min-height: 90px; resize: vertical; }
+.modal-acoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+  background: var(--ink); color: var(--bg-paper);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  padding: 11px 20px; opacity: 0; pointer-events: none; z-index: 120;
+  transition: opacity .2s ease, transform .2s ease; max-width: min(760px, 92vw); text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- responsivo ---------- */
+@media (max-width: 1060px) {
+  .grid-leitor, .grid-redacao, .grid-presidencia { grid-template-columns: 1fr; }
+  .coluna-lateral { border-left: 0; padding-left: 0; border-top: 3px solid var(--rule); margin-top: 24px; padding-top: 18px; }
+}
+@media (max-width: 640px) {
+  .duas-col-campos, .ficha-grid { grid-template-columns: 1fr; }
+  .corpo-duas { column-count: 1; }
+  .balanco { gap: 10px 20px; }
+  .balanco .divisor { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     BARRA DO SISTEMA — índice de seções + temas
+     ====================================================================== -->
+<aside class="topbar">
+  <div class="sys"><span class="diamond">✦</span> <b>O FEDERADO</b> — IMPRENSA LIVRE &amp; GOVERNANÇA POLÍTICA</div>
+  <nav aria-label="Ambientes do sistema">
+    <button id="tab-leitor" class="tab active" onclick="trocarVisao('leitor')">I. Jornal do Leitor</button>
+    <button id="tab-redator" class="tab" onclick="trocarVisao('redator')">II. Mesa de Redação</button>
+    <button id="tab-presidencia" class="tab" onclick="trocarVisao('presidencia')">III. Presidência &amp; Cascata</button>
+  </nav>
+  <div class="theme-group">
+    <span>Edição:</span>
+    <button id="th-papel" class="theme-btn active" onclick="mudarTemaGlobal('papel')">Papel</button>
+    <button id="th-sepia" class="theme-btn" onclick="mudarTemaGlobal('sepia')">Sépia</button>
+    <button id="th-dark" class="theme-btn" onclick="mudarTemaGlobal('dark')">Dark</button>
+  </div>
+</aside>
+
+<main class="sheet">
+
+  <!-- ======================================================================
+       I. JORNAL DO LEITOR
+       ====================================================================== -->
+  <div id="tela-leitor">
+
+    <div id="banner-eleitoral" class="banner-eleitoral is-hidden">
+      ✦ REGIME ESPECIAL ELEITORAL — LEI Nº 9.504/97 · DISTRIBUIÇÃO CRONOLÓGICA E ISONÔMICA · APURAÇÃO DE HYPE SUSPENSA (ADR D6) ✦
+    </div>
+
+    <!-- MASTHEAD -->
+    <header class="masthead">
+      <div class="ficha">
+        <span>Ano XXXIV · Nº 12.840</span>
+        <span>Edição diária federada — 27 estados &amp; 5.570 municípios</span>
+        <span>Leitura universal e aberta · Preço: gratuito</span>
+      </div>
+
+      <h1 class="nome"><span class="orn">✦</span> O FEDERADO <span class="orn">✦</span></h1>
+      <p class="lema">Diário de opinião, notícias regionais e ação política partidária — fundado na voz de cada município</p>
+
+      <div class="dateline">
+        <span>Brasília, terça-feira, 4 de novembro de 2026</span>
+        <span>
+          <button id="lnk-eleitoral" class="lnk lnk-accent" onclick="toggleEleitoral()">[simular modo eleitoral — lei 9.504/97]</button>
+          &nbsp;&nbsp; ☞ <a class="lnk" href="#inscricao">inscrever-se como leitor</a>
+        </span>
+      </div>
+
+      <!-- ÍNDICE DE CADERNOS -->
+      <div class="cadernos">
+        <div>
+          <span class="rotulo">Caderno:</span>
+          <button class="navbtn btn-formato active" data-formato="TODOS" onclick="setFormatoLeitor('TODOS', this)">Geral</button> ·
+          <button class="navbtn btn-formato" data-formato="VIDEO" onclick="setFormatoLeitor('VIDEO', this)">Vídeo / TV</button> ·
+          <button class="navbtn btn-formato" data-formato="AUDIO" onclick="setFormatoLeitor('AUDIO', this)">Rádio / Podcast</button> ·
+          <button class="navbtn btn-formato" data-formato="IMPRESSO_PDF" onclick="setFormatoLeitor('IMPRESSO_PDF', this)">Paper News (PDF)</button>
+        </div>
+        <div>
+          <span class="rotulo">Circulação:</span>
+          <button class="navbtn btn-uf active" data-uf="" onclick="setUfLeitor('', this)">Nacional</button> ·
+          <button class="navbtn btn-uf" data-uf="SP" onclick="setUfLeitor('SP', this)">SP</button> ·
+          <button class="navbtn btn-uf" data-uf="RJ" onclick="setUfLeitor('RJ', this)">RJ</button> ·
+          <button class="navbtn btn-uf" data-uf="MG" onclick="setUfLeitor('MG', this)">MG</button> ·
+          <button class="navbtn btn-uf" data-uf="PR" onclick="setUfLeitor('PR', this)">PR</button> ·
+          <button class="navbtn btn-uf" data-uf="DF" onclick="setUfLeitor('DF', this)">DF</button>
+        </div>
+      </div>
+
+      <div class="busca">
+        <label for="input-busca">Procurar no arquivo:</label>
+        <input id="input-busca" type="text" oninput="filtrarBusca(this.value)" placeholder="município, liderança, matéria ou palavra-chave…" />
+        <span class="f-mono" style="font-size:10px; color:var(--ink-soft); white-space:nowrap;">ARQUIVO DESDE 1946</span>
+      </div>
+    </header>
+
+    <!-- GRADE EDITORIAL -->
+    <div class="grid-leitor">
+
+      <!-- MATERIA PRINCIPAL -->
+      <article class="manchete-block card-feed" data-formato="TEXTO" data-uf="" data-titulo="convencao nacional diretrizes plano diretor soberania editorial">
+        <div class="orelha">
+          <span><b>+ Cobertura federal</b> · Brasília · reportagem da Redação Nacional</span>
+          <span>08h15 · leitura de 4 minutos</span>
+        </div>
+
+        <h2 class="manchete">Convenção Nacional Ratifica Diretrizes do Plano Diretor e Soberania Editorial</h2>
+        <p class="subtitulo">“A voz de cada município e o compromisso ético dos diretórios regionais são o alicerce da nova imprensa
+          democrática”, declara a Mesa Diretora em sessão única, votada por aplauso e por registro em ata.</p>
+
+        <figure class="gravura">
+          <div class="prancha">
+            <svg viewBox="0 0 860 300" role="img" aria-label="Gravura da fachada do Congresso Nacional em Brasília">
+              <defs>
+                <pattern id="hachura" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <line x1="0" y1="0" x2="0" y2="7" stroke="var(--ink)" stroke-width="1" opacity="0.55"/>
+                </pattern>
+              </defs>
+              <g fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="square">
+                <!-- linho do céu -->
+                <line x1="24" y1="40" x2="80" y2="34"/><line x1="46" y1="52" x2="102" y2="46"/>
+                <line x1="760" y1="36" x2="812" y2="30"/>
+                <!-- esplanada e base -->
+                <rect x="120" y="212" width="620" height="56"/>
+                <line x1="120" y1="268" x2="740" y2="268" stroke-width="3"/>
+                <line x1="96"  y1="276" x2="764" y2="276" stroke-width="1.4"/>
+                <!-- colunata -->
+                <g stroke-width="1.6">
+                  <line x1="150" y1="218" x2="150" y2="262"/><line x1="178" y1="218" x2="178" y2="262"/>
+                  <line x1="206" y1="218" x2="206" y2="262"/><line x1="234" y1="218" x2="234" y2="262"/>
+                  <line x1="262" y1="218" x2="262" y2="262"/><line x1="290" y1="218" x2="290" y2="262"/>
+                  <line x1="318" y1="218" x2="318" y2="262"/><line x1="346" y1="218" x2="346" y2="262"/>
+                </g>
+                <!-- torres gêmeas -->
+                <rect x="180" y="58" width="36" height="154" fill="url(#hachura)"/>
+                <rect x="240" y="58" width="36" height="154"/>
+                <line x1="180" y1="86" x2="276" y2="86" stroke-width="1.2"/>
+                <line x1="180" y1="120" x2="276" y2="120" stroke-width="1.2"/>
+                <line x1="180" y1="154" x2="276" y2="154" stroke-width="1.2"/>
+                <line x1="258" y1="58" x2="258" y2="30" stroke-width="1.6"/>
+                <path d="M 258 30 l 26 7 l -26 7" stroke-width="1.6"/>
+                <!-- cúpula do Senado -->
+                <path d="M 470 212 A 62 62 0 0 1 594 212" fill="url(#hachura)"/>
+                <line x1="462" y1="212" x2="602" y2="212" stroke-width="2.4"/>
+                <!-- taça da Câmara -->
+                <path d="M 654 214 A 78 58 0 0 0 810 214" fill="url(#hachura)"/>
+                <line x1="646" y1="214" x2="818" y2="214" stroke-width="2.4"/>
+                <line x1="654" y1="196" x2="810" y2="196" stroke-width="1.2"/>
+                <!-- pássaros -->
+                <path d="M 620 84 q 9 -8 18 0 q 9 -8 18 0" stroke-width="1.4"/>
+                <path d="M 672 62 q 7 -6 14 0 q 7 -6 14 0" stroke-width="1.4"/>
+              </g>
+            </svg>
+          </div>
+          <figcaption>Gravura do correspondente: plenária da Executiva Nacional, em Brasília, que homologou
+            a autonomia editorial das 27 diretorias regionais.</figcaption>
+        </figure>
+
+        <div class="corpo-duas">
+          <p class="dropcap">Em reunião extraordinária de delegados representantes de todas as 27 Unidades da Federação, o corpo
+            partidário deliberou pela aprovação irrevogável do sistema de comunicação federada. A plataforma passa a operar sob
+            regras expressas de conformidade com a legislação eleitoral brasileira, e cada diretório regional passa a responder,
+            em cartório próprio, pela matéria que despacha à grade nacional.</p>
+          <p>O sistema assegura a qualquer cidadão acesso universal e irrestrito a todas as publicações, enquanto confere aos
+            membros inscritos o direito soberano de avaliação qualitativa dos artigos submetidos aos diretórios. Um filiado, um
+            voto; e nenhum voto retorna sobre si mesmo, pois o livro de adesões foi lacrado por gatilho físico de banco de dados.</p>
+          <p>Pela manhã, a presidência nacional confirmou que as cotas semanais de ativação permanecem vigentes durante todo o
+            período pré-convenção, como forma de impedir o inflacionamento artificial do júri popular. “O hype mede a confiança
+            do leitor, e confiança não se imprime com carimbo de máquina”, sintetizou o secretário de comunicação.</p>
+        </div>
+        <p class="remeter">continua no caderno de governança, página 12 ☞</p>
+
+        <!-- APURAÇÃO -->
+        <div class="apuracao">
+          <div class="top">
+            <span>Apuração do júri popular</span>
+            <span class="hype-only">Hype <b class="hype-num">+42,0</b> · 94% de consenso</span>
+            <span class="hype-only" style="color:var(--ink-soft)">1 filiado = 1 voto (ADR D1)</span>
+          </div>
+          <div class="miolo">
+            <div class="votos-botoes">
+              <button id="btn-up-p" class="btn-ink btn-up-vote" onclick="votarPrincipal('up')">▲ Recomendar (<span id="up-p">45</span>)</button>
+              <button id="btn-down-p" class="btn-ink btn-down-vote" onclick="votarPrincipal('down')">▼ Divergir (<span id="down-p">03</span>)</button>
+            </div>
+            <span class="saldo">saldo líquido: <b id="saldo-p">+42</b></span>
+          </div>
+          <div class="votebar" aria-hidden="true">
+            <div class="vb-up" id="bar-up-p" style="width:94%"></div>
+            <div class="vb-down" id="bar-down-p" style="width:6%"></div>
+          </div>
+          <div class="nota-voto" id="nota-p">Votação restrita a filiados com credencial ativa — registro imutável no livro de adesões (ADR D2).</div>
+        </div>
+
+        <!-- BREVES DO INTERIOR -->
+        <div class="breves">
+          <div class="breve">
+            <div class="kicker">Interior paulista ☞</div>
+            <p>O Jornal Popular de Ribeirão Preto distribui 4 mil exemplares gratuitos na feira de domingo, anuncia o diretório local.</p>
+          </div>
+          <div class="breve">
+            <div class="kicker">Cascata ☞</div>
+            <p>Campinas pede elevação de cota semanal; o colégio de líderes delibera na sessão ordinária de quinta-feira.</p>
+          </div>
+          <div class="breve">
+            <div class="kicker">Arquivo ☞</div>
+            <p>Cartas e edição avulsas de 1952 entram em digitalização com apoio do diretório mineiro e do acervo nacional.</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- COLUNA LATERAL -->
+      <aside class="coluna-lateral">
+
+        <div class="coluna-secao bulletin">
+          <div class="kicker">Última hora ❧</div>
+          <ul>
+            <li><span class="hora">08h52</span><span>Diretório do Paraná convoca plenária extraordinária sobre cotas de ativação.</span></li>
+            <li><span class="hora">08h17</span><span>Cascata nacional homologa a 12ª edição impressa do tablóide mineiro.</span></li>
+            <li><span class="hora">07h31</span><span>Chancelaria audita 1.412 credenciais emitidas com chave 2FA WebAuthn.</span></li>
+          </ul>
+        </div>
+
+        <div class="coluna-secao card-feed" data-formato="VIDEO" data-uf="SP" data-titulo="video pronunciamento diretorio estadual sp mobilidade urbana">
+          <div class="kicker">Do caderno de vídeo ☞</div>
+          <h3 class="col-titulo">Diretório Estadual de SP Transmite Conferência sobre Mobilidade Urbana</h3>
+          <div class="meta-linha hype-only">
+            <span>São Paulo · IBGE 35</span>
+            <span class="mini-votos">
+              <button id="btn-up-v" class="mini-btn-up" onclick="votarMini('v','up')">▲ <span id="up-v">32</span></button>
+              <button id="btn-down-v" class="mini-btn-down" onclick="votarMini('v','down')">▼ <span id="down-v">2</span></button>
+            </span>
+          </div>
+          <div class="meta-linha" id="meta-v-eleitoral" style="display:none"><span>São Paulo · IBGE 35 · ordem cronológica</span></div>
+        </div>
+
+        <div class="coluna-secao card-feed" data-formato="IMPRESSO_PDF" data-uf="MG" data-titulo="paper news edicao impressa minas gerais tabloide pdf">
+          <div class="kicker">Paper News impresso ☞</div>
+          <h3 class="col-titulo">Disponível a 12ª Edição Tablóide do Jornal Popular Mineiro em PDF</h3>
+          <div class="meta-linha hype-only">
+            <span>Belo Horizonte · IBGE 3106200</span>
+            <span class="mini-votos">
+              <button id="btn-up-m" class="mini-btn-up" onclick="votarMini('m','up')">▲ <span id="up-m">27</span></button>
+              <button id="btn-down-m" class="mini-btn-down" onclick="votarMini('m','down')">▼ <span id="down-m">1</span></button>
+            </span>
+          </div>
+          <div class="meta-linha" id="meta-m-eleitoral" style="display:none"><span>Belo Horizonte · IBGE 3106200 · ordem cronológica</span></div>
+        </div>
+
+        <div class="coluna-secao coluna-presidente">
+          <div class="kicker">Coluna da presidência ❧</div>
+          <h3 class="col-titulo" style="font-size:19px">A Semana em Perspectiva</h3>
+          <p>Concluída a convenção, a ordem do dia é singela e exigente: manter o arquivo aberto a qualquer cidadão e o voto
+            lacrado a qualquer abuso. Entre esses dois cabos de aço, a federação estica os seus 5.570 municípios sem estalar.</p>
+          <p>Quem redige em Ribeirão Preto ou em Boa Vista escreve, na verdade, para a mesma bancada de revisores. É essa a
+            soberania editorial que o Plano Diretor ratificou — não a do topo, mas a da corrente inteira.</p>
+          <div class="byline">Por Dr. Arthur Meireles · Presidente Nacional</div>
+        </div>
+
+        <div class="coluna-secao">
+          <div class="recorte-1952">
+            <div class="ano">1952</div>
+            <blockquote>“A imprensa é a clave de sol da democracia: onde ela desafina, a orquestra inteira silencia.”</blockquote>
+            <div class="fonte">Recorte do acervo · edição de 12 de agosto de 1952</div>
+          </div>
+          <ul class="arquivo-lista">
+            <li><span class="ano-a">1946</span><span>Primeiro número circula com tiragem de 40 mil exemplares.</span></li>
+            <li><span class="ano-a">1979</span><span>Série “Os Sertões Elétricos” vence o prêmio regional de reportagem.</span></li>
+            <li><span class="ano-a">1994</span><span>Primeira edição informatizada: oito páginas e um faxista teimoso.</span></li>
+          </ul>
+        </div>
+
+        <div class="coluna-secao inscricao-mini" id="inscricao">
+          <div class="kicker">Inscrição de leitores ☞</div>
+          <p style="font-size:13.5px; margin-top:8px;">Receba a edição diária no seu e-mail — sem algoritmo entre você e a notícia. 100% gratuito, cancele num cartório de esquina.</p>
+          <form id="form-inscricao" onsubmit="event.preventDefault(); toast('Inscrição confirmada no caderno de notícias — bem-vindo ao júri popular. ✦'); this.reset();">
+            <div class="linha-email">
+              <input type="email" required placeholder="seu@email.exemplo" aria-label="E-mail para inscrição" />
+              <button class="btn-ink solid" type="submit">Cadastrar</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="fechar-coluna">
+          <div class="selo"><span class="estrela">✦</span><span>Edição</span><span>chancelada</span><span>livro adesões</span><span>adr d1 · d2</span></div>
+        </div>
+      </aside>
+    </div>
+
+    <div id="empty-feed" class="empty-feed is-hidden">☙ nenhuma matéria neste caderno · ajuste os filtros acima ☙</div>
+
+    <footer class="pe-da-pagina">
+      <div class="thick-thin" style="margin-bottom:8px;"></div>
+      <div class="linha">
+        <span><b>Página 1 — caderno geral</b> · folha única federada</span>
+        <span>impressa em cartório digital · resolução partidária 01/2026</span>
+        <span>O Federado, Brasília · <b id="ano-rodape">2026</b></span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ======================================================================
+       II. MESA DE REDAÇÃO
+       ====================================================================== -->
+  <div id="tela-redator" class="is-hidden">
+
+    <header class="cabeco-secao">
+      <div class="quem">
+        <div>
+          <div class="kicker">Mesa de redação ✦ <b>protocolo editorial · validação ammonia (ADR D8)</b></div>
+          <h2>Oficina de Edição e Despacho</h2>
+          <p class="abaixo">Da máquina de escrever à prova de gráfica: a matéria só circula quando o cartório de credenciais autoriza.</p>
+        </div>
+        <div class="ficha-mono">Autor: redator municipal — <b>Ribeirão Preto (SP)</b> · credencial nº 3.114 · <span id="estado-atual">rascunho</span></div>
+      </div>
+    </header>
+
+    <div class="grid-redacao">
+
+      <!-- FICHA DE PAUTA -->
+      <section>
+        <div class="painel-titulo"><span><span class="glifo">❧</span> Ficha de pauta</span><span>protocolo 2026.11.04-081</span></div>
+
+        <div class="campo">
+          <label for="inp-titulo">Título da matéria <span class="req">*</span></label>
+          <input id="inp-titulo" type="text" value="Novo Diretório Municipal Inaugura Espaço de Formação em Ribeirão Preto" oninput="sincronizarProva()" />
+        </div>
+
+        <div class="duas-col-campos">
+          <div class="campo">
+            <label for="inp-comarca">Comarca / jurisdição territorial</label>
+            <input id="inp-comarca" type="text" readonly value="Ribeirão Preto (SP) — IBGE 3543402" />
+          </div>
+          <div class="campo">
+            <label for="sel-formato">Formato editorial</label>
+            <select id="sel-formato" onchange="sincronizarProva()">
+              <option>TEXTO — reportagem</option>
+              <option>VÍDEO — mp4 / stream</option>
+              <option>ÁUDIO — podcast</option>
+              <option>PAPER NEWS — pdf impresso</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="inp-corpo">Corpo da matéria — folha de máquina <span class="req">*</span></label>
+          <textarea id="inp-corpo" rows="7" oninput="sincronizarProva()">O diretório municipal reuniu militantes e lideranças sindicais para deliberar sobre as propostas para a saúde pública da comarca. A pauta aprovada por unanimidade destina o espaço de formação do bairro Ipiranga à alfabetização digital de filiados e simpatizantes.
+
+Na abertura, o presidente local Marcelo Prado lembrou que nenhuma matéria circula sem chancela da Mesa Diretora, em cumprimento à resolução partidária 01/2026.</textarea>
+          <div class="contador" id="conta-linhas">— linhas de composição · — caracteres</div>
+        </div>
+
+        <!-- CASCATA DE ESTADOS -->
+        <div class="cascata-estados">
+          <span class="estado ativo" id="st-rascunho">Rascunho</span>
+          <span class="estado seta">☞</span>
+          <span class="estado" id="st-revisao">Em revisão</span>
+          <span class="estado seta">☞</span>
+          <span class="estado" id="st-chancelado">Chancelado</span>
+          <span class="estado seta">☞</span>
+          <span class="estado" id="st-publicado">Publicado</span>
+        </div>
+
+        <div class="acoes-redacao">
+          <button class="btn-ink" onclick="salvarRascunho()">Salvar rascunho</button>
+          <button class="btn-ink solid" id="btn-despachar" onclick="despachar()">Despachar à mesa diretora ☞</button>
+        </div>
+      </section>
+
+      <!-- PROVA DE GRAFICA -->
+      <section>
+        <div class="painel-titulo"><span><span class="glifo">❧</span> Prova de gráfica</span><span>galley nº 12.840</span></div>
+
+        <div class="prova">
+          <div class="carimbo">Rascunho<br/>não circulado</div>
+          <div class="cab-prova">
+            <span class="caderno-prova">O Federado · caderno municipal</span>
+            <span id="prova-formato">TEXTO · REPORTAGEM</span>
+          </div>
+          <h3 class="prova-titulo" id="prova-titulo">Novo Diretório Municipal Inaugura Espaço de Formação em Ribeirão Preto</h3>
+          <p class="prova-corpo" id="prova-corpo"></p>
+        </div>
+        <p class="contador" style="text-align:left;">A prova espelha o texto após sanitização ammonia (ADR D8) · composição em 12 picas · margem de chancela à direita.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       III. PRESIDÊNCIA & CASCATA
+       ====================================================================== -->
+  <div id="tela-presidencia" class="is-hidden">
+
+    <header class="cabeco-secao">
+      <div class="quem">
+        <div>
+          <div class="kicker">Chancelaria geral ✦ <b>comissão executiva nacional · protocolo de comando</b></div>
+          <h2>Painel da Presidência &amp; Cascata</h2>
+          <p class="abaixo">Subordinação estatutária de diretórios estaduais, comarcas municipais e publicantes credenciados.</p>
+        </div>
+        <div class="ficha-mono">Livro de comando aberto em <b>Brasília</b> · sessão ordinária de 04/11/2026</div>
+      </div>
+    </header>
+
+    <!-- LINHA DE BALANÇO -->
+    <div class="balanco">
+      <div class="stat"><span class="num">27</span><span class="rot">UFs homologadas · 100% da federação</span></div>
+      <div class="stat divisor"></div>
+      <div class="stat"><span class="num">342</span><span class="rot">Publicantes ativos na cascata</span></div>
+      <div class="stat divisor"></div>
+      <div class="stat"><span class="num">14.820</span><span class="rot">Filiados votantes auditados</span></div>
+      <div class="stat divisor"></div>
+      <div class="stat"><span class="num" style="font-size:26px" id="reg-valor">Normal</span><span class="rot">Regime vigente · lei 9.504/97 (ADR D6)</span></div>
+    </div>
+
+    <div class="grid-presidencia">
+
+      <!-- ÁRVORE DA CASCATA -->
+      <section>
+        <div class="painel-titulo"><span><span class="glifo">❧</span> Estrutura política subordinada</span><span>jurisdição IBGE constitucional</span></div>
+
+        <div class="operacoes">
+          <button class="btn-ink" onclick="expandirTodosNos()">Expandir árvore</button>
+          <button class="btn-ink" onclick="recolherTodosNos()">Recolher nós</button>
+          <div class="busca" style="flex:1; min-width:200px; padding:0; border-bottom:1px solid var(--rule-soft);">
+            <input id="input-arvore" type="text" oninput="filtrarArvore(this.value)" placeholder="localizar diretório…" aria-label="Localizar diretório na árvore" />
+          </div>
+          <button class="btn-ink danger" onclick="killSwitchGlobal()">Intervenção extraordinária</button>
+        </div>
+
+        <div class="arvore">
+          <!-- NÍVEL 1 -->
+          <div class="tree-node" data-chave="nacional" onclick="selecionarNo(this,'nacional')">
+            <div class="tn-main">
+              <span class="tn-mark">❖</span>
+              <div>
+                <div class="tn-title">Comissão Executiva Nacional — Presidência</div>
+                <div class="tn-meta">Jurisdição: todo o Brasil · IBGE 00 · Dr. Arthur Meireles</div>
+              </div>
+            </div>
+            <div class="tn-side">
+              <span class="tn-tag">Topo hierárquico</span>
+              <button class="tn-toggle" onclick="toggleFilhos(event,'nos-estaduais',this)" aria-label="Expandir níveis estaduais">–</button>
+            </div>
+          </div>
+
+          <!-- NÍVEL 2 -->
+          <div class="tree-children" id="nos-estaduais">
+
+            <div class="tree-node" data-chave="sp_estadual" onclick="selecionarNo(this,'sp_estadual')">
+              <div class="tn-main">
+                <span class="tn-mark">❧</span>
+                <div>
+                  <div class="tn-title">Diretório Regional de São Paulo — UF 35</div>
+                  <div class="tn-meta">Helena Vasconcellos · 645 municípios subordinados</div>
+                </div>
+              </div>
+              <div class="tn-side">
+                <span class="tn-tag">48 redatores</span>
+                <button class="tn-toggle" onclick="toggleFilhos(event,'nos-municipios-sp',this)" aria-label="Expandir municípios de SP">–</button>
+              </div>
+            </div>
+            <div class="tree-children" id="nos-municipios-sp">
+              <div class="tree-node selected" data-chave="ribeirao_preto" onclick="selecionarNo(this,'ribeirao_preto')">
+                <div class="tn-main">
+                  <span class="tn-mark">☞</span>
+                  <div>
+                    <div class="tn-title">Diretório Municipal de Ribeirão Preto</div>
+                    <div class="tn-meta">IBGE 3543402 · Marcelo Prado · 3 redatores · 14 filiados votantes</div>
+                  </div>
+                </div>
+                <div class="tn-side"><span class="tn-tag">Cota 28%</span></div>
+              </div>
+              <div class="tree-node" data-chave="campinas" onclick="selecionarNo(this,'campinas')">
+                <div class="tn-main">
+                  <span class="tn-mark">☞</span>
+                  <div>
+                    <div class="tn-title">Diretório Municipal de Campinas</div>
+                    <div class="tn-meta">IBGE 3509502 · Camila Brandão · 2 redatores · cota quase atingida</div>
+                  </div>
+                </div>
+                <div class="tn-side"><span class="tn-tag" style="color:var(--accent); border-color:var(--accent);">Alerta 96%</span></div>
+              </div>
+              <div class="tree-node" data-chave="sao_paulo_cap" onclick="selecionarNo(this,'sao_paulo_cap')">
+                <div class="tn-main">
+                  <span class="tn-mark">☞</span>
+                  <div>
+                    <div class="tn-title">Diretório Metropolitano — SP Capital</div>
+                    <div class="tn-meta">IBGE 3550308 · Rogério Fontes · 14 redatores · alta produtividade</div>
+                  </div>
+                </div>
+                <div class="tn-side"><span class="tn-tag">Cota 56%</span></div>
+              </div>
+            </div>
+
+            <div class="tree-node" data-chave="rj_estadual" onclick="selecionarNo(this,'rj_estadual')">
+              <div class="tn-main">
+                <span class="tn-mark">❧</span>
+                <div>
+                  <div class="tn-title">Diretório Regional do Rio de Janeiro — UF 33</div>
+                  <div class="tn-meta">Valmir Antunes · 92 municípios subordinados</div>
+                </div>
+              </div>
+              <div class="tn-side">
+                <span class="tn-tag">26 redatores</span>
+                <button class="tn-toggle" onclick="toggleFilhos(event,'nos-municipios-rj',this)" aria-label="Expandir municípios do RJ">+</button>
+              </div>
+            </div>
+            <div class="tree-children is-hidden" id="nos-municipios-rj">
+              <div class="tree-node" data-chave="rio_capital" onclick="selecionarNo(this,'rio_capital')">
+                <div class="tn-main">
+                  <span class="tn-mark">☞</span>
+                  <div>
+                    <div class="tn-title">Diretório do Rio de Janeiro — Capital</div>
+                    <div class="tn-meta">IBGE 3304557 · Danielle Rocha · 8 redatores ativos</div>
+                  </div>
+                </div>
+                <div class="tn-side"><span class="tn-tag">Ver</span></div>
+              </div>
+            </div>
+
+            <div class="tree-node" data-chave="mg_estadual" onclick="selecionarNo(this,'mg_estadual')">
+              <div class="tn-main">
+                <span class="tn-mark">❧</span>
+                <div>
+                  <div class="tn-title">Diretório Regional de Minas Gerais — UF 31</div>
+                  <div class="tn-meta">Geraldo Magela · 853 municípios subordinados</div>
+                </div>
+              </div>
+              <div class="tn-side">
+                <span class="tn-tag">38 redatores</span>
+                <button class="tn-toggle" onclick="toggleFilhos(event,'nos-municipios-mg',this)" aria-label="Expandir municípios de MG">+</button>
+              </div>
+            </div>
+            <div class="tree-children is-hidden" id="nos-municipios-mg">
+              <div class="tree-node" data-chave="bh_capital" onclick="selecionarNo(this,'bh_capital')">
+                <div class="tn-main">
+                  <span class="tn-mark">☞</span>
+                  <div>
+                    <div class="tn-title">Diretório de Belo Horizonte</div>
+                    <div class="tn-meta">IBGE 3106200 · Silvana Freitas · 6 redatores</div>
+                  </div>
+                </div>
+                <div class="tn-side"><span class="tn-tag">Ver</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="legenda-arvore">
+          <span>Hierarquia: <b style="color:var(--ink)">Nacional (1º) → Estadual (2º) → Municipal (3º) → Publicante (4º)</b></span>
+          <span>Imutabilidade dos atos: resolução partidária 01/2026</span>
+        </div>
+      </section>
+
+      <!-- FICHA DO NÓ + LIVRO DE ATOS -->
+      <aside>
+        <div class="ficha-no">
+          <div class="cab">
+            <span class="painel-titulo" style="border:0; margin:0; padding:0;"><span><span class="glifo">❧</span> Prerrogativas do nó</span></span>
+            <span class="badge-instancia" id="no-instancia">Municipal (3º nível)</span>
+          </div>
+          <h4 id="no-nome">Diretório Municipal de Ribeirão Preto</h4>
+
+          <div class="ficha-grid">
+            <div><div class="rot">Jurisdição IBGE</div><div class="val" id="no-ibge">3543402 (Ribeirão Preto / SP)</div></div>
+            <div><div class="rot">Presidente responsável</div><div class="val" id="no-lider">Marcelo Prado (Filiado #8841)</div></div>
+          </div>
+
+          <div class="cota" id="no-cota-box">
+            <div class="cab-cota">
+              <span>Cota semanal de ativação</span>
+              <span class="valor" id="no-cota-label">14 / 50 usada</span>
+            </div>
+            <div class="gauge"><div class="fill" id="no-cota-fill" style="width:28%"></div></div>
+            <div class="nota-cota">Trava da ADR D2 — previne inflacionamento de votos com filiações em massa.</div>
+          </div>
+
+          <div class="publicantes">
+            <div class="cab-pub"><span>Publicantes credenciados</span><span id="no-count">3 nomes</span></div>
+            <div id="lista-publicantes"></div>
+          </div>
+
+          <div class="acoes-no">
+            <span class="rotulo">Ações de comando da presidência nacional:</span>
+            <button class="btn-ink" onclick="credenciar()">+ Credenciar publicante neste nó</button>
+            <button class="btn-ink" onclick="elevarCota()">▲ Elevar cota semanal (+25)</button>
+            <button class="btn-ink danger" onclick="intervirNo()">Intervenção no diretório · congelar publicantes</button>
+          </div>
+        </div>
+
+        <div class="livro-atos">
+          <div class="cab-livro"><span>Livro de atos cartoriais · registro imutável</span><span class="auditado">✦ auditado</span></div>
+          <div id="livro-atos">
+            <div class="ato"><span class="ato-num">ATO Nº 8.442</span> — [04/11 14:15] Presidência Nacional chancelou o escalonamento da matéria <b>#1042</b> (Ribeirão Preto) para o caderno nacional.</div>
+            <div class="ato"><span class="ato-num">ATO Nº 8.441</span> — [04/11 11:30] Diretório Estadual de SP homologou 2 novos redatores com chave 2FA WebAuthn.</div>
+            <div class="ato"><span class="ato-num">ATO Nº 8.440</span> — [03/11 18:00] Cota semanal do Diretório Metropolitano de SP expandida em regime pré-convenção.</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL -->
+<div id="modal-root" class="modal-root is-hidden" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+  <div class="modal-sheet">
+    <div class="modal-kicker" id="modal-kicker">Registro em cartório</div>
+    <h3 class="modal-titulo" id="modal-titulo"></h3>
+    <div class="modal-corpo" id="modal-corpo"></div>
+    <div class="modal-acoes" id="modal-acoes"></div>
+  </div>
+</div>
+
+<!-- TELEGRAMA / TOAST -->
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   O FEDERADO v2 — controle de visões, temas, votação, cascata e atos
+   ===================================================================== */
+
+// ---------- utilidades ----------
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3800);
+}
+
+// ---------- modal ----------
+const modalRoot = document.getElementById('modal-root');
+function abrirModal(opts) {
+  document.getElementById('modal-kicker').textContent = opts.kicker || 'Registro em cartório';
+  document.getElementById('modal-titulo').textContent = opts.titulo || '';
+  document.getElementById('modal-corpo').innerHTML = opts.corpo || '';
+  const acoes = document.getElementById('modal-acoes');
+  acoes.innerHTML = '';
+  (opts.acoes || [{ txt: 'Fechar' }]).forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'btn-ink ' + (a.cls || '');
+    b.textContent = a.txt;
+    b.onclick = () => { const manter = a.fn && a.fn(); if (!manter) fecharModal(); };
+    acoes.appendChild(b);
+  });
+  modalRoot.classList.remove('is-hidden');
+}
+function fecharModal() { modalRoot.classList.add('is-hidden'); }
+modalRoot.addEventListener('click', e => { if (e.target === modalRoot) fecharModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+// ---------- temas ----------
+function mudarTemaGlobal(tema) {
+  document.documentElement.setAttribute('data-theme', tema);
+  [['th-papel','papel'], ['th-sepia','sepia'], ['th-dark','dark']].forEach(([id, t]) => {
+    document.getElementById(id).classList.toggle('active', t === tema);
+  });
+}
+
+// ---------- visões ----------
+function trocarVisao(visao) {
+  ['leitor','redator','presidencia'].forEach(v => {
+    document.getElementById('tela-' + v).classList.toggle('is-hidden', v !== visao);
+  });
+  [['tab-leitor','leitor'], ['tab-redator','redator'], ['tab-presidencia','presidencia']].forEach(([id, v]) => {
+    document.getElementById(id).classList.toggle('active', v === visao);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ---------- modo eleitoral (ADR D6) ----------
+let modoEleitoral = false;
+function toggleEleitoral() {
+  modoEleitoral = !modoEleitoral;
+  document.getElementById('banner-eleitoral').classList.toggle('is-hidden', !modoEleitoral);
+  document.querySelectorAll('.hype-only').forEach(el => el.classList.toggle('is-hidden', modoEleitoral));
+  ['meta-v-eleitoral','meta-m-eleitoral'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = modoEleitoral ? 'flex' : 'none';
+  });
+  document.getElementById('lnk-eleitoral').textContent = modoEleitoral
+    ? '[retornar ao regime editorial normal]'
+    : '[simular modo eleitoral — lei 9.504/97]';
+  const reg = document.getElementById('reg-valor');
+  if (reg) reg.textContent = modoEleitoral ? 'Eleitoral' : 'Normal';
+  toast(modoEleitoral
+    ? 'Regime eleitoral ativo — feed cronológico e isonômico; hype suspenso (ADR D6).'
+    : 'Regime editorial normal restaurado — apuração de hype retomada.');
+}
+
+// ---------- votação (ADR D1/D2) ----------
+const votos = {
+  p: { up: 45, down: 3, votado: false },
+  v: { up: 32, down: 2, votado: false },
+  m: { up: 27, down: 1, votado: false }
+};
+function votarPrincipal(tipo) {
+  const v = votos.p;
+  if (v.votado) { toast('Seu voto já está registrado no livro de adesões — imutável (ADR D2).'); return; }
+  v[tipo]++; v.votado = true;
+  renderVotosP();
+  const nota = document.getElementById('nota-p');
+  nota.classList.add('ok');
+  nota.textContent = '✍ Voto registrado no livro de adesões — imutável por gatilho físico de banco de dados (ADR D2).';
+  toast(tipo === 'up'
+    ? 'Recomendação registrada — obrigado, leitor do júri popular. ✦'
+    : 'Divergência registrada no livro de adesões.');
+}
+function renderVotosP() {
+  const v = votos.p;
+  const total = v.up + v.down;
+  const pct = Math.round((v.up / total) * 100);
+  document.getElementById('up-p').textContent = v.up;
+  document.getElementById('down-p').textContent = String(v.down).padStart(2, '0');
+  document.getElementById('saldo-p').textContent = (v.up - v.down >= 0 ? '+' : '') + (v.up - v.down);
+  document.getElementById('bar-up-p').style.width = pct + '%';
+  document.getElementById('bar-down-p').style.width = (100 - pct) + '%';
+  const bU = document.getElementById('btn-up-p'), bD = document.getElementById('btn-down-p');
+  bU.disabled = true; bD.disabled = true;
+  if (v.votado) (v.up > 45 ? bU : bD).classList.add('pressed');
+}
+function votarMini(chave, tipo) {
+  const v = votos[chave];
+  if (v.votado) { toast('Voto já registrado para esta matéria (1 filiado = 1 voto).'); return; }
+  v[tipo]++; v.votado = true;
+  document.getElementById('up-' + chave).textContent = v.up;
+  document.getElementById('down-' + chave).textContent = v.down;
+  const bU = document.getElementById('btn-up-' + chave), bD = document.getElementById('btn-down-' + chave);
+  bU.disabled = true; bD.disabled = true;
+  (tipo === 'up' ? bU : bD).classList.add('pressed');
+  toast('Voto registrado no livro de adesões (ADR D1).');
+}
+
+// ---------- filtros do leitor ----------
+let filtroFormato = 'TODOS', filtroUf = '', filtroBusca = '';
+function aplicarFiltros() {
+  let visivel = 0;
+  document.querySelectorAll('.card-feed').forEach(c => {
+    const okF = filtroFormato === 'TODOS' || c.dataset.formato === filtroFormato;
+    const okU = !filtroUf || c.dataset.uf === filtroUf;
+    const okB = !filtroBusca || (c.dataset.titulo || '').includes(filtroBusca);
+    const show = okF && okU && okB;
+    c.classList.toggle('is-hidden', !show);
+    if (show) visivel++;
+  });
+  document.getElementById('empty-feed').classList.toggle('is-hidden', visivel > 0);
+}
+function setFormatoLeitor(formato, btn) {
+  filtroFormato = formato;
+  document.querySelectorAll('.btn-formato').forEach(b => b.classList.toggle('active', b === btn));
+  aplicarFiltros();
+}
+function setUfLeitor(uf, btn) {
+  filtroUf = uf;
+  document.querySelectorAll('.btn-uf').forEach(b => b.classList.toggle('active', b === btn));
+  aplicarFiltros();
+}
+function filtrarBusca(valor) {
+  filtroBusca = valor.trim().toLowerCase();
+  aplicarFiltros();
+}
+
+// ---------- mesa de redação ----------
+const ordemEstados = ['rascunho','revisao','chancelado','publicado'];
+let estadoMateria = 'rascunho';
+let despachado = false;
+function sincronizarProva() {
+  const titulo = document.getElementById('inp-titulo').value.trim();
+  const corpo = document.getElementById('inp-corpo').value;
+  document.getElementById('prova-titulo').textContent = titulo || '(matéria sem título)';
+  const pc = document.getElementById('prova-corpo');
+  pc.textContent = corpo;
+  pc.classList.toggle('vazio', corpo.trim() === '');
+  document.getElementById('prova-formato').textContent =
+    document.getElementById('sel-formato').value.toUpperCase();
+  document.getElementById('conta-linhas').textContent =
+    Math.max(1, Math.ceil(corpo.length / 58)) + ' linhas de composição · ' + corpo.length + ' caracteres';
+}
+function setEstado(alvo) {
+  estadoMateria = alvo;
+  const idx = ordemEstados.indexOf(alvo);
+  ordemEstados.forEach((e, i) => {
+    const el = document.getElementById('st-' + e);
+    el.classList.remove('ativo','feito');
+    if (i < idx) el.classList.add('feito');
+    if (i === idx) el.classList.add('ativo');
+  });
+  const nomes = { rascunho:'rascunho', revisao:'em revisão', chancelado:'chancelado', publicado:'publicado' };
+  document.getElementById('estado-atual').textContent = nomes[alvo];
+}
+function salvarRascunho() {
+  const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  toast('Rascunho registrado no cofre editorial — autosave local às ' + agora + '.');
+}
+function despachar() {
+  if (despachado) { toast('Esta matéria já foi despachada à Mesa Diretora.'); return; }
+  const titulo = document.getElementById('inp-titulo').value.trim() || '(sem título)';
+  abrirModal({
+    kicker: 'Despacho editorial',
+    titulo: 'Remeter à Mesa Diretora?',
+    corpo: `<p>A matéria <b>${escapeHtml(titulo)}</b> seguirá para revisão editorial da Redatora-Chefe, com sanitização
+            ammonia (ADR D8) e registro de protocolo antes da chancela da presidência.</p>`,
+    acoes: [
+      { txt: 'Voltar' },
+      { txt: 'Despachar ✦', cls: 'solid', fn: () => {
+          despachado = true;
+          setEstado('revisao');
+          const b = document.getElementById('btn-despachar');
+          b.textContent = 'Despachado ✦';
+          b.disabled = true;
+          toast('Matéria despachada — protocolo 2026.11.04-081 sob revisão editorial. ✦');
+          return false;
+      }}
+    ]
+  });
+}
+
+// ---------- presidência: dados da cascata ----------
+const dadosNos = {
+  nacional: {
+    instancia: 'Nacional (1º nível)', nome: 'Comissão Executiva Nacional',
+    ibge: '00 (Federal — todo o Brasil)', lider: 'Dr. Arthur Meireles (Presidente Nacional)',
+    cota: 'Nacional ilimitada',
+    redatores: [
+      { nome: 'Carlos Eduardo Braga', cargo: 'Secretário Nacional de Comunicação', mat: 42 },
+      { nome: 'Ana Paula Nogueira', cargo: 'Editora-Chefe da Redação Nacional', mat: 86 }
+    ]
+  },
+  sp_estadual: {
+    instancia: 'Estadual (2º nível)', nome: 'Diretório Regional de São Paulo',
+    ibge: '35 (Estado de São Paulo)', lider: 'Helena Vasconcellos (Presidente Estadual)',
+    cota: 'Regional 250/semana',
+    redatores: [
+      { nome: 'Fabio Diniz', cargo: 'Coordenador de Comunicação SP', mat: 28 },
+      { nome: 'Renata Godoy', cargo: 'Editora do Caderno TV Partido SP', mat: 19 }
+    ]
+  },
+  ribeirao_preto: {
+    instancia: 'Municipal (3º nível)', nome: 'Diretório Municipal de Ribeirão Preto',
+    ibge: '3543402 (Ribeirão Preto / SP)', lider: 'Marcelo Prado (Presidente Municipal)',
+    cota: '14 / 50 usada nesta semana',
+    redatores: [
+      { nome: 'Beatriz Alencar', cargo: 'Redatora-Chefe Municipal', mat: 12 },
+      { nome: 'Lucas Moretti', cargo: 'Repórter Comunitário', mat: 5 },
+      { nome: 'Thiago Sampaio', cargo: 'Diagramador Paper News', mat: 4 }
+    ]
+  },
+  campinas: {
+    instancia: 'Municipal (3º nível)', nome: 'Diretório Municipal de Campinas',
+    ibge: '3509502 (Campinas / SP)', lider: 'Camila Brandão (Presidente Municipal)',
+    cota: '48 / 50 usada (alerta de limite)',
+    redatores: [
+      { nome: 'Gabriel Moura', cargo: 'Redator Local', mat: 8 },
+      { nome: 'Juliana Peixoto', cargo: 'Produtora de Áudio', mat: 6 }
+    ]
+  },
+  sao_paulo_cap: {
+    instancia: 'Metropolitano (3º nível)', nome: 'Diretório Metropolitano de São Paulo Capital',
+    ibge: '3550308 (São Paulo Capital)', lider: 'Rogério Fontes (Presidente Municipal)',
+    cota: '112 / 200 usada',
+    redatores: [
+      { nome: 'Marcos Vinicius', cargo: 'Editor Metropolitano', mat: 34 },
+      { nome: 'Sofia Bittencourt', cargo: 'Redatora de Direitos Humanos', mat: 21 },
+      { nome: 'Danilo Ferraz', cargo: 'Fotógrafo e Repórter Audiovisual', mat: 15 }
+    ]
+  },
+  rj_estadual: {
+    instancia: 'Estadual (2º nível)', nome: 'Diretório Regional do Rio de Janeiro',
+    ibge: '33 (Estado do Rio de Janeiro)', lider: 'Valmir Antunes (Presidente Regional)',
+    cota: 'Regional 180/semana',
+    redatores: [
+      { nome: 'Claudio Neves', cargo: 'Coordenador RJ', mat: 17 }
+    ]
+  },
+  rio_capital: {
+    instancia: 'Municipal (3º nível)', nome: 'Diretório do Rio de Janeiro — Capital',
+    ibge: '3304557 (Rio de Janeiro / RJ)', lider: 'Danielle Rocha (Presidente Municipal)',
+    cota: '31 / 80 usada',
+    redatores: [
+      { nome: 'Paulo Cesar Lins', cargo: 'Editor de Pauta Rio', mat: 11 },
+      { nome: 'Vera Lúcia Antunes', cargo: 'Redatora de Cultura', mat: 7 }
+    ]
+  },
+  mg_estadual: {
+    instancia: 'Estadual (2º nível)', nome: 'Diretório Regional de Minas Gerais',
+    ibge: '31 (Estado de Minas Gerais)', lider: 'Geraldo Magela (Presidente Regional)',
+    cota: 'Regional 200/semana',
+    redatores: [
+      { nome: 'Afonso Arinos', cargo: 'Editor Regional MG', mat: 22 }
+    ]
+  },
+  bh_capital: {
+    instancia: 'Municipal (3º nível)', nome: 'Diretório de Belo Horizonte',
+    ibge: '3106200 (Belo Horizonte / MG)', lider: 'Silvana Freitas (Presidente Municipal)',
+    cota: '9 / 60 usada',
+    redatores: [
+      { nome: 'Hélio Peixoto', cargo: 'Redator-Chefe BH', mat: 9 },
+      { nome: 'Cristina Bahia', cargo: 'Repórter de Bairros', mat: 3 }
+    ]
+  }
+};
+let noAtual = 'ribeirao_preto';
+
+function selecionarNo(el, chave) {
+  document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('selected'));
+  el.classList.add('selected');
+  noAtual = chave;
+  renderNo(chave);
+}
+function toggleFilhos(ev, id, btn) {
+  ev.stopPropagation();
+  const el = document.getElementById(id);
+  const aberto = !el.classList.contains('is-hidden');
+  el.classList.toggle('is-hidden', aberto);
+  btn.textContent = aberto ? '+' : '–';
+}
+function expandirTodosNos() {
+  ['nos-estaduais','nos-municipios-sp','nos-municipios-rj','nos-municipios-mg'].forEach(id => {
+    document.getElementById(id).classList.remove('is-hidden');
+  });
+  document.querySelectorAll('.tn-toggle').forEach(b => { if (b.textContent.trim() === '+') b.textContent = '–'; });
+}
+function recolherTodosNos() {
+  ['nos-municipios-sp','nos-municipios-rj','nos-municipios-mg'].forEach(id => {
+    document.getElementById(id).classList.add('is-hidden');
+  });
+  document.querySelectorAll('.tn-toggle').forEach(b => { if (b.textContent.trim() === '–') b.textContent = '+'; });
+}
+function filtrarArvore(valor) {
+  const t = valor.trim().toLowerCase();
+  document.querySelectorAll('.tree-node').forEach(n => {
+    n.classList.toggle('is-hidden', !!t && !n.textContent.toLowerCase().includes(t));
+  });
+  document.querySelectorAll('.tree-children').forEach(g => {
+    g.classList.toggle('is-hidden', !!t && !g.textContent.toLowerCase().includes(t));
+  });
+}
+
+function renderNo(chave) {
+  const d = dadosNos[chave];
+  document.getElementById('no-instancia').textContent = d.instancia;
+  document.getElementById('no-nome').textContent = d.nome;
+  document.getElementById('no-ibge').textContent = d.ibge;
+  document.getElementById('no-lider').textContent = d.lider;
+  document.getElementById('no-count').textContent = d.redatores.length + (d.redatores.length === 1 ? ' nome' : ' nomes');
+
+  // cota
+  const box = document.getElementById('no-cota-box');
+  const fill = document.getElementById('no-cota-fill');
+  const rot = document.getElementById('no-cota-label');
+  box.classList.remove('alerta');
+  const m = d.cota.match(/(\d+)\s*\/\s*(\d+)/);
+  if (m) {
+    const u = +m[1], t = +m[2];
+    fill.style.width = Math.min(100, (u / t) * 100) + '%';
+    rot.textContent = u + ' / ' + t + ' usada';
+    if (u / t >= 0.9) box.classList.add('alerta');
+  } else {
+    fill.style.width = '100%';
+    rot.textContent = d.cota;
+  }
+
+  // publicantes
+  const lista = document.getElementById('lista-publicantes');
+  lista.innerHTML = '';
+  d.redatores.forEach((r, i) => {
+    lista.innerHTML += `
+      <div class="pub-linha">
+        <div class="quem">
+          <div><b>${i + 1}. ${escapeHtml(r.nome)}</b> · <span class="cargo">${escapeHtml(r.cargo)}</span></div>
+          <div class="det">Credencial ativa · ${r.mat} matéria${r.mat === 1 ? '' : 's'} publicada${r.mat === 1 ? '' : 's'}</div>
+        </div>
+        <span class="status">✦ habilitado${r.nome.endsWith('a') ? 'a' : ''}</span>
+      </div>`;
+  });
+}
+
+// ---------- livro de atos ----------
+let atoSeq = 8443;
+function addAto(texto, tone) {
+  atoSeq++;
+  const log = document.getElementById('livro-atos');
+  const div = document.createElement('div');
+  div.className = 'ato' + (tone ? ' ' + tone : '');
+  const agora = new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  div.innerHTML = `<span class="ato-num">ATO Nº ${atoSeq.toLocaleString('pt-BR')}</span> — [${agora} ${hora}] ${texto}`;
+  log.prepend(div);
+}
+
+// ---------- ações de comando ----------
+function credenciar() {
+  const d = dadosNos[noAtual];
+  abrirModal({
+    kicker: 'Ato de credenciamento',
+    titulo: 'Credenciar publicante',
+    corpo: `<p>O novo redator será habilitado no <b>${escapeHtml(d.nome)}</b>, com credencial 2FA WebAuthn e jurisdição
+            travada ao IBGE <b>${escapeHtml(d.ibge)}</b> (ADR D4).</p>
+            <div class="campo" style="margin-top:14px">
+              <label for="modal-input">Nome completo do novo publicante</label>
+              <input id="modal-input" type="text" placeholder="ex.: Maria das Dores Andrade" />
+            </div>`,
+    acoes: [
+      { txt: 'Voltar' },
+      { txt: 'Credenciar ✦', cls: 'solid', fn: () => {
+          const v = (document.getElementById('modal-input').value || '').trim();
+          if (!v) { toast('Informe o nome completo do publicante.'); return true; }
+          d.redatores.push({ nome: v, cargo: 'Redator credenciado', mat: 0 });
+          renderNo(noAtual);
+          addAto(`Presidência homologou a credencial de ${escapeHtml(v)} no ${escapeHtml(d.nome)}.`);
+          toast('Publicante credenciado — chave 2FA registrada no livro de atos. ✦');
+          return false;
+      }}
+    ]
+  });
+}
+function elevarCota() {
+  const d = dadosNos[noAtual];
+  const m = d.cota.match(/(\d+)\s*\/\s*(\d+)/);
+  if (!m) {
+    abrirModal({
+      kicker: 'Pleito encaminhado',
+      titulo: 'Cota gerida por nível superior',
+      corpo: `<p>A cota de <b>${escapeHtml(d.nome)}</b> é do tipo regional (${escapeHtml(d.cota)}), fixada pelo nível
+              estadual. O pedido de elevação foi encaminhado ao colégio de líderes e registrado no livro de atos.</p>`,
+      acoes: [{ txt: 'Ciente', cls: 'solid' }]
+    });
+    addAto(`Pedido de elevação de cota do ${escapeHtml(d.nome)} encaminhado ao colégio de líderes.`);
+    return;
+  }
+  const usada = +m[1], total = +m[2];
+  abrirModal({
+    kicker: 'Ato de benefício',
+    titulo: 'Elevar cota semanal',
+    corpo: `<p>A cota de <b>${escapeHtml(d.nome)}</b> passará de <b>${total}</b> para <b>${total + 25}</b> ativações
+            semanais de filiados, em regime pré-convenção. A elevação é auditada e não altera votos já registrados (ADR D2).</p>`,
+    acoes: [
+      { txt: 'Voltar' },
+      { txt: 'Elevar cota ▲', cls: 'solid', fn: () => {
+          d.cota = `${usada} / ${total + 25} usada`;
+          renderNo(noAtual);
+          addAto(`Cota semanal do ${escapeHtml(d.nome)} elevada para ${total + 25} ativações.`);
+          toast('Cota elevada e registrada no livro de atos. ▲');
+          return false;
+      }}
+    ]
+  });
+}
+function intervirNo() {
+  const d = dadosNos[noAtual];
+  abrirModal({
+    kicker: 'Ato de intervenção',
+    titulo: 'Intervenção estatutária',
+    corpo: `<p>A intervenção revoga <b>imediatamente</b> todas as credenciais subordinadas ao
+            <b>${escapeHtml(d.nome)}</b> — as sessões ativas são derrubadas no Redis e o órgão entra em regime
+            extraordinário. Informe a justificativa ou o número da ata:</p>
+            <div class="campo" style="margin-top:14px">
+              <label for="modal-motivo">Justificativa / ata</label>
+              <textarea id="modal-motivo" placeholder="ex.: Ata nº 214 — suspeita de uso indevido de credenciais"></textarea>
+            </div>`,
+    acoes: [
+      { txt: 'Cancelar' },
+      { txt: 'Executar intervenção', cls: 'danger', fn: () => {
+          const v = (document.getElementById('modal-motivo').value || '').trim();
+          if (!v) { toast('Justificativa obrigatória — todo ato de intervenção exige número de ata.'); return true; }
+          addAto(`INTERVENÇÃO ESTATUTÁRIA: ${escapeHtml(d.nome)} colocado sob administração provisória. Motivo: ${escapeHtml(v)}`, 'intervencao');
+          document.getElementById('no-instancia').textContent = 'Sob intervenção';
+          toast('Intervenção executada — credenciais subordinadas revogadas.');
+          return false;
+      }}
+    ]
+  });
+}
+function killSwitchGlobal() {
+  abrirModal({
+    kicker: 'Quorum da executiva nacional',
+    titulo: 'Intervenção extraordinária',
+    corpo: `<p>O comando global de intervenção exige <b>quorum qualificado da Executiva Nacional</b> e assinatura de, no
+            mínimo, três membros do secretariado com 2FA. Nenhuma ação foi executada nesta sessão.</p>`,
+    acoes: [{ txt: 'Entendido', cls: 'solid' }]
+  });
+}
+
+// ---------- inicialização ----------
+sincronizarProva();
+renderNo(noAtual);
+setEstado('rascunho');
+</script>
+</body>
+</html>
