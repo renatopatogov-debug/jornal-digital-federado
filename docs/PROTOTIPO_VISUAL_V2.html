@@ -623,6 +623,8 @@ figure.gravura figcaption {
     <button id="tab-leitor" class="tab active" onclick="trocarVisao('leitor')">I. Jornal do Leitor</button>
     <button id="tab-redator" class="tab" onclick="trocarVisao('redator')">II. Mesa de Redação</button>
     <button id="tab-presidencia" class="tab" onclick="trocarVisao('presidencia')">III. Presidência &amp; Cascata</button>
+    <button id="tab-login-filiado" class="tab" onclick="trocarVisao('login-filiado')">IV. Login Filiado Votante</button>
+    <button id="tab-login-admin" class="tab" onclick="trocarVisao('login-admin')">V. Login Mesa / Adm</button>
   </nav>
   <div class="theme-group">
     <span>Edição:</span>
@@ -1194,6 +1196,106 @@ Na abertura, o presidente local Marcelo Prado lembrou que nenhuma matéria circu
     </div>
   </div>
 
+  <!-- ======================================================================
+       IV. LOGIN SEPARADO: FILIADO VOTANTE
+       ====================================================================== -->
+  <div id="tela-login-filiado" class="is-hidden" style="max-width: 620px; margin: 20px auto 40px;">
+    <header class="cabeco-secao text-center">
+      <div class="kicker" style="justify-content: center;">Portal do Filiado ✦ <b>Habilitação de Voto Auditável (ADR D1 & D2)</b></div>
+      <h2>Entrada do Júri Popular</h2>
+      <p class="abaixo">Identificação oficial de membros para emissão do direito de recomendação e divergência.</p>
+    </header>
+
+    <div class="ficha-no" style="background-color: var(--bg-wash);">
+      <div class="cab">
+        <span class="badge-instancia" style="border-color: var(--vote-up-border); color: var(--vote-up-ink); background: var(--vote-up-bg);">✦ Voto Único Auditável</span>
+        <span class="f-mono" style="font-size: 10px; color: var(--ink-soft);">Cartório Eleitoral Partidário</span>
+      </div>
+
+      <form onsubmit="event.preventDefault(); simularLoginFiliado();" style="margin-top: 14px;">
+        <div class="campo">
+          <label for="filiado-email">E-mail Cadastrado no Diretório <span class="req">*</span></label>
+          <input id="filiado-email" type="email" required placeholder="filiado.comarca@partido.org.br" />
+        </div>
+
+        <div class="campo">
+          <label for="filiado-doc">Título de Eleitor ou CPF (Hash SHA-256) <span class="req">*</span></label>
+          <input id="filiado-doc" type="text" required placeholder="000.000.000-00 ou Nº do Título" />
+          <p class="contador" style="text-align: left; margin-top: 4px;">Convertido em hash seguro no servidor para proteção da LGPD partidária.</p>
+        </div>
+
+        <div class="acoes-redacao" style="margin-top: 24px;">
+          <button type="submit" class="btn-ink solid" style="width: 100%; padding: 12px; font-size: 12px; background: var(--vote-up-bar); border-color: var(--vote-up-bar);">
+            ▲ Habilitar Credencial de Votante
+          </button>
+        </div>
+      </form>
+
+      <div class="legenda-arvore" style="margin-top: 18px;">
+        <span>É redator ou administrador? <a class="lnk lnk-accent" onclick="trocarVisao('login-admin')">Acessar Mesa Administrativa ☞</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       V. LOGIN SEPARADO: MESA DE REDAÇÃO & ADMINISTRAÇÃO TERRITORIAL
+       ====================================================================== -->
+  <div id="tela-login-admin" class="is-hidden" style="max-width: 680px; margin: 20px auto 40px;">
+    <header class="cabeco-secao text-center">
+      <div class="kicker" style="justify-content: center;">Chancelaria de Comando ✦ <b>Anel de Confiança Editorial (2FA / WebAuthn)</b></div>
+      <h2>Acesso Administrativo & Redação</h2>
+      <p class="abaixo">Entrada segregada com barreira de jurisdição IBGE (Municipal, Regional ou Federal).</p>
+    </header>
+
+    <div class="ficha-no" style="background-color: var(--bg-wash);">
+      <div class="cab">
+        <span class="badge-instancia">✦ Restrito a Redatores e Líderes</span>
+        <span class="f-mono" style="font-size: 10px; color: var(--accent); font-weight: 600;">Autenticação em 2 Etapas</span>
+      </div>
+
+      <form id="form-login-adm" onsubmit="event.preventDefault(); simularLoginAdm();" style="margin-top: 14px;">
+        <!-- Seletor de Nível de Jurisdição -->
+        <div class="campo">
+          <label>Nível Hierárquico de Despacho <span class="req">*</span></label>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 4px;">
+            <button type="button" id="btn-jur-mun" onclick="selecionarNivelAdm('MUNICIPAL')" class="btn-ink solid" style="font-size: 10px; padding: 7px 4px; text-align: center;">1. Municipal</button>
+            <button type="button" id="btn-jur-est" onclick="selecionarNivelAdm('ESTADUAL')" class="btn-ink" style="font-size: 10px; padding: 7px 4px; text-align: center;">2. Estadual</button>
+            <button type="button" id="btn-jur-nac" onclick="selecionarNivelAdm('PRESIDENCIAL')" class="btn-ink" style="font-size: 10px; padding: 7px 4px; text-align: center;">3. Presidencial</button>
+          </div>
+        </div>
+
+        <div class="duas-col-campos">
+          <div class="campo">
+            <label for="adm-email">E-mail Institucional <span class="req">*</span></label>
+            <input id="adm-email" type="email" required value="redator.sp@partido.org.br" />
+          </div>
+          <div class="campo">
+            <label for="adm-senha">Senha de Protocolo <span class="req">*</span></label>
+            <input id="adm-senha" type="password" required value="••••••••••••" />
+          </div>
+        </div>
+
+        <div class="campo" id="campo-2fa-totp" style="border: 1px dashed var(--rule); padding: 10px; background: var(--bg-paper);">
+          <label for="adm-totp" style="color: var(--accent);">Código de Segundo Fator TOTP (Google Authenticator / YubiKey) <span class="req">*</span></label>
+          <input id="adm-totp" type="text" maxlength="6" placeholder="000 000" style="font-size: 16px; font-weight: 700; letter-spacing: 0.25em; text-align: center;" />
+        </div>
+
+        <div class="acoes-redacao" style="margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button type="submit" class="btn-ink solid" style="padding: 11px; font-size: 11px;">
+            ✦ Validar & Abrir Mesa
+          </button>
+          <button type="button" onclick="simularPasskeyAdm()" class="btn-ink" style="padding: 11px; font-size: 10px; border-color: var(--accent); color: var(--accent);">
+            🔑 Entrar com Passkey / FIDO2
+          </button>
+        </div>
+      </form>
+
+      <div class="legenda-arvore" style="margin-top: 18px;">
+        <span>É leitor comum ou filiado sem cargo? <a class="lnk" onclick="trocarVisao('login-filiado')">Habilitar voto de filiado ☞</a></span>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <!-- MODAL -->
@@ -1258,13 +1360,53 @@ function mudarTemaGlobal(tema) {
 
 // ---------- visões ----------
 function trocarVisao(visao) {
-  ['leitor','redator','presidencia'].forEach(v => {
-    document.getElementById('tela-' + v).classList.toggle('is-hidden', v !== visao);
+  ['leitor','redator','presidencia','login-filiado','login-admin'].forEach(v => {
+    const el = document.getElementById('tela-' + v);
+    if (el) el.classList.toggle('is-hidden', v !== visao);
   });
-  [['tab-leitor','leitor'], ['tab-redator','redator'], ['tab-presidencia','presidencia']].forEach(([id, v]) => {
-    document.getElementById(id).classList.toggle('active', v === visao);
+  [['tab-leitor','leitor'], ['tab-redator','redator'], ['tab-presidencia','presidencia'], ['tab-login-filiado','login-filiado'], ['tab-login-admin','login-admin']].forEach(([id, v]) => {
+    const tabEl = document.getElementById(id);
+    if (tabEl) tabEl.classList.toggle('active', v === visao);
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ---------- simulação de login segregado ----------
+let nivelAdmSelecionado = 'MUNICIPAL';
+function selecionarNivelAdm(nivel) {
+  nivelAdmSelecionado = nivel;
+  document.getElementById('btn-jur-mun').className = 'btn-ink ' + (nivel === 'MUNICIPAL' ? 'solid' : '');
+  document.getElementById('btn-jur-est').className = 'btn-ink ' + (nivel === 'ESTADUAL' ? 'solid' : '');
+  document.getElementById('btn-jur-nac').className = 'btn-ink ' + (nivel === 'PRESIDENCIAL' ? 'solid' : '');
+}
+
+function simularLoginFiliado() {
+  toast('Filiado identificado com sucesso! Credencial de voto auditável (▲ / ▼) habilitada na sessão.');
+  setTimeout(() => {
+    trocarVisao('leitor');
+  }, 1200);
+}
+
+function simularLoginAdm() {
+  toast(`Autenticação 2FA aceita! Acessando mesa ${nivelAdmSelecionado.toLowerCase()}...`);
+  setTimeout(() => {
+    if (nivelAdmSelecionado === 'PRESIDENCIAL') {
+      trocarVisao('presidencia');
+    } else {
+      trocarVisao('redator');
+    }
+  }, 1200);
+}
+
+function simularPasskeyAdm() {
+  toast(`Passkey FIDO2 validada biometricamente! Acessando mesa ${nivelAdmSelecionado.toLowerCase()}...`);
+  setTimeout(() => {
+    if (nivelAdmSelecionado === 'PRESIDENCIAL') {
+      trocarVisao('presidencia');
+    } else {
+      trocarVisao('redator');
+    }
+  }, 1200);
 }
 
 // ---------- modo eleitoral (ADR D6) ----------
