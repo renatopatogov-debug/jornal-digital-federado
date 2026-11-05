@@ -579,6 +579,12 @@ figure.gravura figcaption {
   width: min(560px, 100%); background-color: var(--bg-paper); background-image: var(--grao);
   border: 1px solid var(--rule);
   box-shadow: var(--sombra); padding: 26px 28px 24px; position: relative;
+  transition: width .2s ease;
+}
+.modal-sheet.largo {
+  width: min(1080px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
 }
 .modal-sheet::before { content: ""; position: absolute; inset: 5px; border: 1px solid var(--rule-soft); pointer-events: none; }
 .modal-kicker { font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
@@ -656,12 +662,30 @@ figure.gravura figcaption {
       <h1 class="nome"><span class="orn">✦</span> O FEDERADO <span class="orn">✦</span></h1>
       <p class="lema">Diário de opinião, notícias regionais e ação política partidária — fundado na voz de cada município</p>
 
+      <!-- DATELINE COM SELETOR DE EDIÇÃO LOCAL -->
       <div class="dateline">
-        <span>Brasília, terça-feira, 4 de novembro de 2026</span>
-        <span>
-          <button id="lnk-eleitoral" class="lnk lnk-accent" onclick="toggleEleitoral()">[simular modo eleitoral — lei 9.504/97]</button>
-          &nbsp;&nbsp; ☞ <a class="lnk" href="#inscricao">inscrever-se como leitor</a>
-        </span>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span>Brasília, quinta-feira, 5 de novembro de 2026</span>
+          <span style="color:var(--rule-soft)">·</span>
+          <span style="display:inline-flex; align-items:center; gap:5px; font-weight:600; color:var(--ink);">
+            <span style="color:var(--accent);">📍</span> EDIÇÃO LOCAL:
+            <select id="sel-edicao-cabecalho" onchange="mudarEdicaoLocal(this.value)" style="border:0; border-bottom:1.5px solid var(--accent); background:transparent; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; color:var(--ink); padding:1px 4px; outline:none; cursor:pointer;">
+              <option value="NACIONAL">Federal (Brasília / Todo o Brasil)</option>
+              <option value="SP_RIBEIRAO" selected>São Paulo — Ribeirão Preto (Comarca 3543402)</option>
+              <option value="SP_CAPITAL">São Paulo — Capital (Metropolitana 3550308)</option>
+              <option value="SP_CAMPINAS">São Paulo — Campinas (Comarca 3509502)</option>
+              <option value="RJ_CAPITAL">Rio de Janeiro — Capital (Comarca 3304557)</option>
+              <option value="MG_BH">Minas Gerais — Belo Horizonte (Comarca 3106200)</option>
+            </select>
+          </span>
+        </div>
+        <div>
+          <button id="btn-folhear-cabecalho" class="lnk lnk-accent" onclick="abrirModoFolhear()" style="font-weight:700; margin-right:12px;">
+            📖 [Folhear Edição Impressa / Paper View]
+          </button>
+          <button id="lnk-eleitoral" class="lnk" onclick="toggleEleitoral()">[simular lei 9.504/97]</button>
+          &nbsp;&nbsp; ☞ <a class="lnk" href="#inscricao">inscrever-se</a>
+        </div>
       </div>
 
       <!-- ÍNDICE DE CADERNOS -->
@@ -704,6 +728,19 @@ figure.gravura figcaption {
         <h2 class="manchete">Convenção Nacional Ratifica Diretrizes do Plano Diretor e Soberania Editorial</h2>
         <p class="subtitulo">“A voz de cada município e o compromisso ético dos diretórios regionais são o alicerce da nova imprensa
           democrática”, declara a Mesa Diretora em sessão única, votada por aplauso e por registro em ata.</p>
+
+        <!-- AÇÕES DO LEITOR: RECORTAR NOTÍCIA & AUDIO -->
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--rule-soft); padding-bottom:6px; margin-bottom:10px; font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase;">
+          <span id="comarca-badge-lead" style="color:var(--ink-soft)">Comarca: Ribeirão Preto / SP · Caderno Nacional</span>
+          <div style="display:flex; gap:12px;">
+            <button onclick="gerarRecorteImprensa()" class="lnk lnk-accent" style="font-weight:700;">
+              ✂ [Recortar Citação / Salvar p/ Redes]
+            </button>
+            <button onclick="abrirModoFolhear()" class="lnk">
+              📄 [Ver no Jornal Diagramado]
+            </button>
+          </div>
+        </div>
 
         <figure class="gravura">
           <div class="prancha">
@@ -807,6 +844,21 @@ figure.gravura figcaption {
 
       <!-- COLUNA LATERAL -->
       <aside class="coluna-lateral">
+
+        <!-- SUMÁRIO EXECUTIVO: EDIÇÃO MATINAL EM 1 MINUTO -->
+        <div class="coluna-secao" style="background-color: var(--bg-wash); border:1px solid var(--rule); padding:12px 14px; margin-bottom:14px;">
+          <div class="kicker" style="color:var(--accent);">⚡ O Dia em 1 Minuto · Telegrama</div>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; line-height:1.55; margin-top:8px;">
+            <p><b>1. CONVENÇÃO:</b> Homologada a autonomia dos 5.570 municípios na comunicação partidária.</p>
+            <p style="margin-top:6px;"><b>2. APURAÇÃO:</b> Pauta de Ribeirão Preto lidera consenso nacional com 94% de aprovação.</p>
+            <p style="margin-top:6px;"><b>3. DEFESO:</b> TSE confirma calendário ordinário; interruptor da Lei 9.504 auditado.</p>
+          </div>
+          <div style="margin-top:8px; padding-top:6px; border-top:1px dotted var(--rule-soft); text-align:right;">
+            <button onclick="abrirModoFolhear()" class="lnk lnk-accent" style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:700;">
+              [Ler Jornal Completo ☞]
+            </button>
+          </div>
+        </div>
 
         <div class="coluna-secao bulletin">
           <div class="kicker">Última hora ❧</div>
@@ -938,12 +990,63 @@ figure.gravura figcaption {
           </div>
         </div>
 
+        <!-- BANCO DE GRAVURAS & XILOGRAVURAS DE IMPRENSA -->
+        <div class="campo" style="background:var(--bg-wash); border:1px solid var(--rule-soft); padding:10px 12px;">
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>✦ Gravura Oficial do Acervo</span>
+            <span style="font-weight:400; color:var(--ink-soft);">Ilustração de Linótipo</span>
+          </label>
+          <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+            <select id="sel-gravura" onchange="trocarGravuraAcervo(this.value)" style="flex:1; border:0; border-bottom:1px solid var(--rule); background:transparent; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:4px 0;">
+              <option value="CONGRESSO">Congresso Nacional / Praça dos Três Poderes (Brasília)</option>
+              <option value="PRELO">Prelo Histórico & Prensa Gutenberg (Comunicação)</option>
+              <option value="CIDADE">Casario Histórico / Bairros Populares (Comarca Municipal)</option>
+              <option value="PALANQUE">Tribuna Popular & Liderança Comunitária</option>
+            </select>
+            <button type="button" onclick="toast('Gravura aplicada à matriz de impressão da galley.');" class="btn-ink" style="padding:4px 8px; font-size:9.5px;">
+              Aplicar à Prova
+            </button>
+          </div>
+        </div>
+
         <div class="campo">
           <label for="inp-corpo">Corpo da matéria — folha de máquina <span class="req">*</span></label>
           <textarea id="inp-corpo" rows="7" oninput="sincronizarProva()">O diretório municipal reuniu militantes e lideranças sindicais para deliberar sobre as propostas para a saúde pública da comarca. A pauta aprovada por unanimidade destina o espaço de formação do bairro Ipiranga à alfabetização digital de filiados e simpatizantes.
 
 Na abertura, o presidente local Marcelo Prado lembrou que nenhuma matéria circula sem chancela da Mesa Diretora, em cumprimento à resolução partidária 01/2026.</textarea>
-          <div class="contador" id="conta-linhas">— linhas de composição · — caracteres</div>
+          
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-family:'IBM Plex Mono',monospace; font-size:10px;">
+            <!-- LINTER JURÍDICO EM TEMPO REAL (LEI 9.504/97) -->
+            <span id="linter-compliance" style="color:var(--vote-up-bar); font-weight:600;">
+              ✓ LINTER JURÍDICO: TEXTO EM CONFORMIDADE COM A LEI 9.504/97
+            </span>
+            <span class="contador" id="conta-linhas" style="margin-top:0;">— linhas · — caracteres</span>
+          </div>
+        </div>
+
+        <!-- LINHA DO TEMPO VISUAL DO TRÂMITE EDITORIAL -->
+        <div style="border-top:1px solid var(--rule-soft); margin-top:16px; padding-top:12px;">
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:600; text-transform:uppercase; color:var(--ink-soft); display:block; margin-bottom:8px;">
+            Rastreabilidade e Trâmite Cartorial (Linha do Tempo):
+          </span>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase;">
+            <div style="border:1px solid var(--rule); padding:6px; background:var(--vote-up-bg); color:var(--vote-up-ink);">
+              <div style="font-weight:700;">1. Redação</div>
+              <div style="font-size:8.5px; opacity:0.8;">08h00 · Concluída</div>
+            </div>
+            <div style="border:1px solid var(--rule); padding:6px; background:var(--vote-up-bg); color:var(--vote-up-ink);">
+              <div style="font-weight:700;">2. Ammonia</div>
+              <div style="font-size:8.5px; opacity:0.8;">08h01 · Sanitizado</div>
+            </div>
+            <div id="tramite-step3" style="border:1px solid var(--rule-soft); padding:6px; background:var(--bg-wash); color:var(--ink-soft);">
+              <div style="font-weight:700;">3. Homologação</div>
+              <div style="font-size:8.5px; opacity:0.8;" id="tramite-step3-hora">Aguardando Líder</div>
+            </div>
+            <div id="tramite-step4" style="border:1px solid var(--rule-soft); padding:6px; background:var(--bg-wash); color:var(--ink-soft);">
+              <div style="font-weight:700;">4. Circulação</div>
+              <div style="font-size:8.5px; opacity:0.8;">Pendente</div>
+            </div>
+          </div>
         </div>
 
         <!-- CASCATA DE ESTADOS -->
@@ -972,6 +1075,9 @@ Na abertura, o presidente local Marcelo Prado lembrou que nenhuma matéria circu
           <div class="cab-prova">
             <span class="caderno-prova">O Federado · caderno municipal</span>
             <span id="prova-formato">TEXTO · REPORTAGEM</span>
+          </div>
+          <div id="prova-gravura-box" style="margin: 8px 0; border: 1px solid var(--rule); padding: 4px; background: #fff;">
+            <!-- SVG gravura da galley será injetado pelo script -->
           </div>
           <h3 class="prova-titulo" id="prova-titulo">Novo Diretório Municipal Inaugura Espaço de Formação em Ribeirão Preto</h3>
           <p class="prova-corpo" id="prova-corpo"></p>
@@ -1006,6 +1112,71 @@ Na abertura, o presidente local Marcelo Prado lembrou que nenhuma matéria circu
       <div class="stat"><span class="num">14.820</span><span class="rot">Filiados votantes auditados</span></div>
       <div class="stat divisor"></div>
       <div class="stat"><span class="num" style="font-size:26px" id="reg-valor">Normal</span><span class="rot">Regime vigente · lei 9.504/97 (ADR D6)</span></div>
+    </div>
+
+    <!-- MURAL DE ALERTAS ÉTICOS & HEATMAP DE ENGAJAMENTO FEDERATIVO -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
+      <!-- CARD 1: MAPA DE CALOR FEDERATIVO (HEATMAP DE ENGAJAMENTO) -->
+      <div class="ficha-no" style="background-color: var(--bg-card); padding:14px;">
+        <div class="cab" style="margin-bottom:8px; padding-bottom:6px;">
+          <span class="painel-titulo" style="border:0; margin:0; padding:0; font-size:10px;">
+            <span><span class="glifo">🗺️</span> Mapa de Calor &amp; Engajamento das 27 UFs</span>
+          </span>
+          <span class="badge-instancia" style="border-color:var(--vote-up-border); color:var(--vote-up-ink); background:var(--vote-up-bg); font-size:8.5px;">Atualizado às 09h00</span>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; display:grid; gap:6px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>1. SÃO PAULO (SP · IBGE 35)</span>
+            <span style="font-weight:700; color:var(--vote-up-ink);">98% ATIVO · 64 MATÉRIAS</span>
+          </div>
+          <div style="width:100%; height:5px; background:var(--bg-wash); border:1px solid var(--rule-soft);"><div style="width:98%; height:100%; background:var(--vote-up-bar);"></div></div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+            <span>2. MINAS GERAIS (MG · IBGE 31)</span>
+            <span style="font-weight:700; color:var(--vote-up-ink);">91% ATIVO · 45 MATÉRIAS</span>
+          </div>
+          <div style="width:100%; height:5px; background:var(--bg-wash); border:1px solid var(--rule-soft);"><div style="width:91%; height:100%; background:var(--vote-up-bar);"></div></div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+            <span>3. RIO DE JANEIRO (RJ · IBGE 33)</span>
+            <span style="font-weight:700; color:var(--vote-up-ink);">84% ATIVO · 38 MATÉRIAS</span>
+          </div>
+          <div style="width:100%; height:5px; background:var(--bg-wash); border:1px solid var(--rule-soft);"><div style="width:84%; height:100%; background:var(--vote-up-bar);"></div></div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+            <span>4. PARANÁ &amp; SUL (PR · IBGE 41)</span>
+            <span style="font-weight:700; color:var(--vote-up-ink);">79% ATIVO · 26 MATÉRIAS</span>
+          </div>
+          <div style="width:100%; height:5px; background:var(--bg-wash); border:1px solid var(--rule-soft);"><div style="width:79%; height:100%; background:var(--vote-up-bar);"></div></div>
+        </div>
+      </div>
+
+      <!-- CARD 2: MURAL DE ALERTAS E DIVERGÊNCIAS ÉTICAS DA BASE -->
+      <div class="ficha-no" style="background-color: var(--bg-card); padding:14px;">
+        <div class="cab" style="margin-bottom:8px; padding-bottom:6px;">
+          <span class="painel-titulo" style="border:0; margin:0; padding:0; font-size:10px;">
+            <span><span class="glifo">⚠️</span> Fiscalização Estatutária &amp; Alertas da Base</span>
+          </span>
+          <span class="badge-instancia" style="border-color:var(--vote-down-border); color:var(--vote-down-ink); background:var(--vote-down-bg); font-size:8.5px;">1 Pauta em Mediação</span>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; line-height:1.45; color:var(--ink-soft);">
+          <div style="border:1px dashed var(--rule); padding:8px; background:var(--bg-wash);">
+            <div style="display:flex; justify-content:space-between; color:var(--vote-down-ink); font-weight:700;">
+              <span>MATÉRIA #1039 · COMUTADORES DE LINHA</span>
+              <span>32% DIVERGÊNCIA</span>
+            </div>
+            <p style="margin-top:4px; font-size:9.5px; color:var(--ink);">Comarca de Campinas submeteu tese com alto índice de downvotes do diretório. Encaminhado ao Conselho de Ética.</p>
+            <div style="margin-top:6px; display:flex; gap:8px;">
+              <button onclick="toast('Processo de mediação partidária aberto para a comarca de Campinas.');" class="btn-ink" style="padding:3px 7px; font-size:9px;">
+                Abrir Mediação
+              </button>
+              <button onclick="toast('Pauta suspensa cautelarmente da circulação pública.');" class="btn-ink danger" style="padding:3px 7px; font-size:9px;">
+                Congelar Pauta
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="grid-presidencia">
@@ -1332,6 +1503,8 @@ function toast(msg) {
 // ---------- modal ----------
 const modalRoot = document.getElementById('modal-root');
 function abrirModal(opts) {
+  const sheet = modalRoot.querySelector('.modal-sheet');
+  if (sheet) sheet.classList.toggle('largo', !!opts.largo);
   document.getElementById('modal-kicker').textContent = opts.kicker || 'Registro em cartório';
   document.getElementById('modal-titulo').textContent = opts.titulo || '';
   document.getElementById('modal-corpo').innerHTML = opts.corpo || '';
@@ -1346,7 +1519,11 @@ function abrirModal(opts) {
   });
   modalRoot.classList.remove('is-hidden');
 }
-function fecharModal() { modalRoot.classList.add('is-hidden'); }
+function fecharModal() {
+  const sheet = modalRoot.querySelector('.modal-sheet');
+  if (sheet) sheet.classList.remove('largo');
+  modalRoot.classList.add('is-hidden');
+}
 modalRoot.addEventListener('click', e => { if (e.target === modalRoot) fecharModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
@@ -1501,6 +1678,231 @@ function filtrarBusca(valor) {
   aplicarFiltros();
 }
 
+// ---------- banco de gravuras do acervo ----------
+const GRAVURAS_ACERVO = {
+  CONGRESSO: `<svg viewBox="0 0 400 110" style="width:100%; height:85px; display:block;">
+    <rect width="400" height="110" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <line x1="20" y1="95" x2="380" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <path d="M 60 95 C 60 55, 140 55, 140 95 Z" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="180" y="25" width="16" height="70" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="204" y="25" width="16" height="70" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="190" y="55" width="20" height="5" fill="var(--ink)"/>
+    <path d="M 260 65 C 260 100, 340 100, 340 65" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <line x1="260" y1="65" x2="340" y2="65" stroke="var(--ink)" stroke-width="1.5"/>
+    <line x1="290" y1="95" x2="310" y2="95" stroke="var(--ink)" stroke-width="3"/>
+    <text x="200" y="105" font-family="'IBM Plex Mono',monospace" font-size="7.5" text-anchor="middle" fill="var(--ink-soft)" letter-spacing="1">GRAVURA I · PRAÇA DOS TRÊS PODERES · BRASÍLIA</text>
+  </svg>`,
+  PRELO: `<svg viewBox="0 0 400 110" style="width:100%; height:85px; display:block;">
+    <rect width="400" height="110" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <rect x="130" y="20" width="14" height="75" fill="none" stroke="var(--ink)" stroke-width="2"/>
+    <rect x="256" y="20" width="14" height="75" fill="none" stroke="var(--ink)" stroke-width="2"/>
+    <line x1="120" y1="25" x2="280" y2="25" stroke="var(--ink)" stroke-width="3"/>
+    <line x1="130" y1="70" x2="270" y2="70" stroke="var(--ink)" stroke-width="2"/>
+    <line x1="200" y1="25" x2="200" y2="60" stroke="var(--ink)" stroke-width="5" stroke-dasharray="3,2"/>
+    <line x1="150" y1="42" x2="250" y2="38" stroke="var(--ink)" stroke-width="3"/>
+    <circle cx="150" cy="42" r="4" fill="var(--ink)"/>
+    <rect x="155" y="70" width="90" height="12" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <line x1="100" y1="95" x2="300" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <text x="200" y="105" font-family="'IBM Plex Mono',monospace" font-size="7.5" text-anchor="middle" fill="var(--ink-soft)" letter-spacing="1">GRAVURA II · PRELO TIPOGRÁFICO DE LINÓTIPO</text>
+  </svg>`,
+  CIDADE: `<svg viewBox="0 0 400 110" style="width:100%; height:85px; display:block;">
+    <rect width="400" height="110" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <line x1="20" y1="95" x2="380" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <polygon points="120,40 140,25 160,40" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="120" y="40" width="40" height="55" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="130" y="48" width="8" height="12" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <rect x="142" y="48" width="8" height="12" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <rect x="134" y="72" width="12" height="23" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <polygon points="180,30 200,15 220,30" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="180" y="30" width="40" height="65" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <circle cx="200" cy="42" r="5" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <rect x="192" y="58" width="16" height="37" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <polygon points="240,45 260,32 280,45" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="240" y="45" width="40" height="50" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="250" y="55" width="8" height="12" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <rect x="262" y="55" width="8" height="12" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <text x="200" y="105" font-family="'IBM Plex Mono',monospace" font-size="7.5" text-anchor="middle" fill="var(--ink-soft)" letter-spacing="1">GRAVURA III · CASARIO DA COMARCA MUNICIPAL</text>
+  </svg>`,
+  PALANQUE: `<svg viewBox="0 0 400 110" style="width:100%; height:85px; display:block;">
+    <rect width="400" height="110" fill="none" stroke="var(--ink)" stroke-width="1"/>
+    <line x1="20" y1="95" x2="380" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <polygon points="170,95 180,50 220,50 230,95" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <rect x="175" y="45" width="50" height="8" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <ellipse cx="200" cy="38" rx="4" ry="6" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+    <line x1="200" y1="44" x2="200" y2="48" stroke="var(--ink)" stroke-width="1.5"/>
+    <line x1="80" y1="28" x2="320" y2="28" stroke="var(--ink)" stroke-width="1" stroke-dasharray="2,2"/>
+    <text x="200" y="24" font-family="'IBM Plex Mono',monospace" font-size="8" text-anchor="middle" fill="var(--ink)" font-weight="bold">CONVENÇÃO FEDERADA DOS TRABALHADORES</text>
+    <circle cx="100" cy="80" r="4" fill="var(--ink)"/><line x1="100" y1="84" x2="100" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="120" cy="78" r="4" fill="var(--ink)"/><line x1="120" y1="82" x2="120" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="140" cy="81" r="4" fill="var(--ink)"/><line x1="140" y1="85" x2="140" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="260" cy="81" r="4" fill="var(--ink)"/><line x1="260" y1="85" x2="260" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="280" cy="78" r="4" fill="var(--ink)"/><line x1="280" y1="82" x2="280" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <circle cx="300" cy="80" r="4" fill="var(--ink)"/><line x1="300" y1="84" x2="300" y2="95" stroke="var(--ink)" stroke-width="2"/>
+    <text x="200" y="105" font-family="'IBM Plex Mono',monospace" font-size="7.5" text-anchor="middle" fill="var(--ink-soft)" letter-spacing="1">GRAVURA IV · TRIBUNA POPULAR &amp; ASSEMBLEIA</text>
+  </svg>`
+};
+
+function trocarGravuraAcervo(tipo, silencioso = false) {
+  const box = document.getElementById('prova-gravura-box');
+  if (box && GRAVURAS_ACERVO[tipo]) {
+    box.innerHTML = GRAVURAS_ACERVO[tipo];
+  }
+  const nomes = {
+    CONGRESSO: 'Congresso Nacional / Praça dos Três Poderes',
+    PRELO: 'Prelo Histórico & Prensa Gutenberg',
+    CIDADE: 'Casario Histórico / Comarca Municipal',
+    PALANQUE: 'Tribuna Popular & Liderança'
+  };
+  if (!silencioso) {
+    toast(`Gravura de linótipo atualizada: ${nomes[tipo] || tipo} ✦`);
+  }
+}
+
+// ---------- edição local & leitor inovador ----------
+const edicoesCaderno = {
+  NACIONAL: { nome: 'Federal (Brasília / Todo o Brasil)', lead: 'Comarca: Brasília / DF · Caderno Nacional' },
+  SP_RIBEIRAO: { nome: 'São Paulo — Ribeirão Preto', lead: 'Comarca: Ribeirão Preto / SP · Caderno Municipal' },
+  SP_CAPITAL: { nome: 'São Paulo — Capital', lead: 'Comarca: São Paulo / SP · Caderno Metropolitano' },
+  SP_CAMPINAS: { nome: 'São Paulo — Campinas', lead: 'Comarca: Campinas / SP · Caderno Municipal' },
+  RJ_CAPITAL: { nome: 'Rio de Janeiro — Capital', lead: 'Comarca: Rio de Janeiro / RJ · Caderno Fluminense' },
+  MG_BH: { nome: 'Minas Gerais — Belo Horizonte', lead: 'Comarca: Belo Horizonte / MG · Caderno Mineiro' }
+};
+
+function mudarEdicaoLocal(val) {
+  const info = edicoesCaderno[val] || edicoesCaderno.NACIONAL;
+  const leadEl = document.getElementById('comarca-badge-lead');
+  if (leadEl) leadEl.textContent = info.lead;
+  toast(`Edição alternada para: ${info.nome}. Pautas sincronizadas com sua comarca!`);
+}
+
+function abrirModoFolhear() {
+  const html = `
+    <div style="font-family:'Newsreader',Georgia,serif; color:var(--ink);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid var(--rule); padding-bottom:8px; margin-bottom:12px; font-family:'IBM Plex Mono',monospace; font-size:10.5px;">
+        <span>✦ BROADSHEET DUPLO · FAC-SÍMILE DA EDIÇÃO MATINAL ✦</span>
+        <span style="color:var(--accent); font-weight:700;">FOLHA 1 &amp; 2 DE 8</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px; background:var(--bg-wash); padding:16px; border:1px solid var(--rule-soft); box-shadow:inset 0 0 10px rgba(0,0,0,0.04);">
+        
+        <!-- PÁGINA 1 -->
+        <div style="background:var(--bg-paper); border:1px solid var(--rule); padding:16px; box-shadow:2px 2px 8px rgba(0,0,0,0.05);">
+          <div style="text-align:center; border-bottom:2px solid var(--rule); padding-bottom:6px; margin-bottom:8px;">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-soft);">PÁGINA 1 · COBERTURA FEDERAL</div>
+            <div style="font-family:'Playfair Display',serif; font-size:19px; font-weight:900; letter-spacing:1px; margin:2px 0;">✦ O FEDERADO ✦</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--ink-soft);">ANO LXXXVIII · Nº 1.482 · BRASÍLIA/DF · 05/11/2026</div>
+          </div>
+          <h4 style="font-family:'Playfair Display',serif; font-size:14px; font-weight:900; line-height:1.2; margin:0 0 6px;">Convenção Nacional Ratifica Diretrizes do Plano Diretor e Soberania Editorial</h4>
+          <div style="border:1px solid var(--rule); padding:4px; margin-bottom:8px; background:#fff;">
+            ${GRAVURAS_ACERVO.CONGRESSO}
+          </div>
+          <div style="font-size:9.5px; line-height:1.4; text-align:justify; columns:2; column-gap:12px;">
+            <p style="margin:0 0 6px;"><b>BRASÍLIA —</b> A Mesa Diretora aprovou por aclamação a nova resolução de descentralização partidária. A medida confere cotas editoriais autônomas para as 27 UFs e comarcas municipais.</p>
+            <p style="margin:0;">O Secretariado Nacional destacou que a imprensa federada assegura registro cartorial contra a efemeridade das redes centralizadas.</p>
+          </div>
+          <div style="border-top:1px solid var(--rule-soft); margin-top:10px; padding-top:4px; font-family:'IBM Plex Mono',monospace; font-size:8px; text-align:right; color:var(--ink-soft);">[ Continua no Caderno Especial · Pág. 3 ]</div>
+        </div>
+
+        <!-- PÁGINA 2 -->
+        <div style="background:var(--bg-paper); border:1px solid var(--rule); padding:16px; box-shadow:2px 2px 8px rgba(0,0,0,0.05);">
+          <div style="text-align:center; border-bottom:2px solid var(--rule); padding-bottom:6px; margin-bottom:8px;">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-soft);">PÁGINA 2 · CADERNO PAULISTA &amp; COMARCAS</div>
+            <div style="font-family:'Playfair Display',serif; font-size:19px; font-weight:900; letter-spacing:1px; margin:2px 0;">VOZ DOS MUNICÍPIOS</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:8px; color:var(--ink-soft);">RIBEIRÃO PRETO · CAMPINAS · SÃO PAULO CAPITAL</div>
+          </div>
+          <h4 style="font-family:'Playfair Display',serif; font-size:13px; font-weight:900; line-height:1.2; margin:0 0 6px;">Diretório de Ribeirão Preto Entrega Espaço de Formação Operária</h4>
+          <p style="font-size:9.5px; line-height:1.4; text-align:justify; margin:0 0 8px;">
+            <b>RIBEIRÃO PRETO —</b> Em sessão ordinária no bairro Ipiranga, militantes deliberaram sobre o plano de formação e imprensa comunitária com 40 anos de manifestos preservados.
+          </p>
+          <div style="border:1px dashed var(--rule); padding:6px; background:var(--bg-wash); margin-bottom:8px;">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:8px; font-weight:700; color:var(--accent);">TELEGRAMA EDITORIAL (1 MIN):</div>
+            <div style="font-size:8.5px; line-height:1.3; color:var(--ink-soft);">14 diretórios municipais registraram moção favorável à integração de tarifas públicas. A consulta segue aberta aos filiados até sexta-feira.</div>
+          </div>
+          <div style="font-size:9px; line-height:1.35; text-align:justify; columns:2; column-gap:10px;">
+            <p style="margin:0 0 4px;"><b>CAMPINAS —</b> Diretório avança em debate sobre mobilidade interurbana.</p>
+            <p style="margin:0;"><b>CAPITAL —</b> Plenária metropolitana no domingo aprova pauta comum dos bairros.</p>
+          </div>
+          <div style="border-top:1px solid var(--rule-soft); margin-top:10px; padding-top:4px; font-family:'IBM Plex Mono',monospace; font-size:8px; display:flex; justify-content:space-between; color:var(--ink-soft);">
+            <span>CHANCELA: SP-3543402</span>
+            <span>FOLHA 2 / 8</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  abrirModal({
+    largo: true,
+    kicker: 'Edição Impressa Virtual (Paper View)',
+    titulo: 'Folhear Jornal Diagramado — Caderno Broadsheet',
+    corpo: html,
+    acoes: [
+      { txt: 'Imprimir Caderno (PDF) 🖨', fn: () => { window.print(); return true; } },
+      { txt: 'Fechar Folheamento ✦', cls: 'solid' }
+    ]
+  });
+}
+
+function gerarRecorteImprensa() {
+  const citacao = "“A voz de cada município e o compromisso ético dos diretórios regionais são o alicerce da nova imprensa democrática.”";
+  const autor = "Mesa Diretora · Convenção Nacional de Brasília (Ato nº 8.442)";
+  const titulo = "Convenção Nacional Ratifica Diretrizes do Plano Diretor e Soberania Editorial";
+  
+  const html = `
+    <div style="background:var(--bg-paper); border:2px dashed var(--rule); padding:20px; position:relative; box-shadow:0 4px 12px rgba(0,0,0,0.07); margin:4px 0 12px;">
+      <div style="position:absolute; top:-12px; left:16px; background:var(--bg-paper); padding:0 6px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--accent); font-weight:700;">
+        ✂ RECORTE OFICIAL DE IMPRENSA · O FEDERADO
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--rule); padding-bottom:6px; margin-bottom:12px; font-family:'IBM Plex Mono',monospace; font-size:9px; text-transform:uppercase; color:var(--ink-soft);">
+        <span>Edição nº 1.482 · Brasília/DF</span>
+        <span>Autenticação: #FED-2026-BR-081</span>
+      </div>
+
+      <div style="font-family:'Playfair Display',serif; font-size:15px; font-weight:700; color:var(--ink); margin-bottom:8px; line-height:1.3;">
+        ${titulo}
+      </div>
+
+      <blockquote style="margin:0 0 12px; padding:10px 14px; border-left:3px solid var(--accent); background:var(--bg-wash); font-family:'Newsreader',Georgia,serif; font-size:15.5px; font-style:italic; line-height:1.5; color:var(--ink);">
+        ${citacao}
+      </blockquote>
+
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; font-family:'IBM Plex Mono',monospace; font-size:9.5px; border-top:1px solid var(--rule-soft); padding-top:8px;">
+        <div>
+          <b style="color:var(--ink);">${autor}</b><br/>
+          <span style="color:var(--ink-soft);">Publicado no Diário Oficial Federado · Circulação Nacional</span>
+        </div>
+        <div style="border:1px solid var(--rule); padding:3px 6px; font-size:8px; text-transform:uppercase; color:var(--accent); font-weight:700;">
+          ✦ CHANCELA VÁLIDA
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; margin:0;">
+      O recorte acima possui proporções e selo de autenticidade para compartilhamento em redes sociais, WhatsApp e citação documental.
+    </p>
+  `;
+
+  abrirModal({
+    kicker: 'Recorte Tipográfico Oficial',
+    titulo: 'Recorte de Notícia para Redes &amp; Citação',
+    corpo: html,
+    acoes: [
+      { txt: 'Copiar Citação 📋', fn: () => {
+          navigator.clipboard.writeText(`${citacao}\n— ${autor}\nFonte: O Federado (Edição nº 1.482)`);
+          toast('Citação copiada para a área de transferência com atribuição oficial!');
+          return true;
+      }},
+      { txt: 'Compartilhar no WhatsApp 💬', fn: () => {
+          const texto = encodeURIComponent(`*O Federado — Edição 1.482*\n\n${citacao}\n\n— _${autor}_\n\nDiário Oficial Federado.`);
+          window.open(`https://api.whatsapp.com/send?text=${texto}`, '_blank');
+          return true;
+      }},
+      { txt: 'Fechar Recorte ✦', cls: 'solid' }
+    ]
+  });
+}
+
 // ---------- mesa de redação ----------
 const ordemEstados = ['rascunho','revisao','chancelado','publicado'];
 let estadoMateria = 'rascunho';
@@ -1516,6 +1918,21 @@ function sincronizarProva() {
     document.getElementById('sel-formato').value.toUpperCase();
   document.getElementById('conta-linhas').textContent =
     Math.max(1, Math.ceil(corpo.length / 58)) + ' linhas de composição · ' + corpo.length + ' caracteres';
+
+  // Linter de conformidade eleitoral (Lei 9.504/97)
+  const linter = document.getElementById('linter-compliance');
+  if (linter) {
+    const textoCompleto = (titulo + ' ' + corpo).toLowerCase();
+    const termosVedados = ['vote em', 'vote no', 'candidato oficial', 'santinho', 'showmicio', 'distribuição de brinde'];
+    const achado = termosVedados.find(t => textoCompleto.includes(t));
+    if (achado) {
+      linter.style.color = 'var(--vote-down-bar)';
+      linter.textContent = `⚠️ ALERTA JURÍDICO (LEI 9.504/97): Detectado termo com restrição eleitoral ('${achado}'). Recomenda-se redação isonômica.`;
+    } else {
+      linter.style.color = 'var(--vote-up-bar)';
+      linter.textContent = '✓ LINTER JURÍDICO: TEXTO EM CONFORMIDADE COM A LEI 9.504/97';
+    }
+  }
 }
 function setEstado(alvo) {
   estadoMateria = alvo;
@@ -1549,6 +1966,14 @@ function despachar() {
           const b = document.getElementById('btn-despachar');
           b.textContent = 'Despachado ✦';
           b.disabled = true;
+          const s3 = document.getElementById('tramite-step3');
+          if (s3) {
+            s3.style.background = 'var(--vote-up-bg)';
+            s3.style.color = 'var(--vote-up-ink)';
+            s3.style.borderColor = 'var(--rule)';
+            const s3h = document.getElementById('tramite-step3-hora');
+            if (s3h) s3h.textContent = '08h15 · Em Mesa Diretora';
+          }
           toast('Matéria despachada — protocolo 2026.11.04-081 sob revisão editorial. ✦');
           return false;
       }}
@@ -1824,6 +2249,7 @@ function killSwitchGlobal() {
 
 // ---------- inicialização ----------
 sincronizarProva();
+trocarGravuraAcervo('CONGRESSO', true);
 renderNo(noAtual);
 setEstado('rascunho');
 </script>
