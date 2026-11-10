@@ -34,7 +34,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&app_config.database_url)
         .await
         .unwrap_or_else(|err| {
-            tracing::warn!("Aviso: Não foi possível conectar ao PostgreSQL em {}: {}. Aguardando banco...", app_config.database_url, err);
+            tracing::warn!(
+                "Aviso: Não foi possível conectar ao PostgreSQL em {}: {}. Aguardando banco...",
+                app_config.database_url,
+                err
+            );
             panic!("PostgreSQL 16 obrigatório para inicialização da API.");
         });
 
@@ -50,11 +54,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_headers(Any);
 
     let app = routes::build_api_router(pool)
-        .layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024)) // 5MB max payload (anti-buffer stuffing / DoS)
+        .layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024))
         .layer(TraceLayer::new_for_http())
         .layer(cors);
 
-    // 5. Iniciar Servidor HTTP Axum
+    // 6. Iniciar Servidor HTTP Axum
     let addr = SocketAddr::new(
         app_config.host.parse().expect("Host inválido"),
         app_config.port,

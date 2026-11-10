@@ -31,6 +31,10 @@ jobs:
         working-directory: backend
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      - name: Testes Unitários Core (Hype & Ammonia XSS)
+        working-directory: backend
+        run: cargo test --all-targets
+
   database-integrity:
     name: Database Migrations & Constraints Test
     runs-on: ubuntu-latest
@@ -57,15 +61,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Instalar SQLx CLI
-        run: cargo install sqlx-cli --no-default-features --features rustls,postgres
+      - name: Executar Migrações DDL e Seeds Fundacionais
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261102000001_schema_inicial.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261102000002_seeds_fundacionais.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261102000003_webauthn_passkeys.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/20261102000004_suporte_multimidia_e_paper_news.sql
 
-      - name: Executar Migrações DDL
-        working-directory: backend
-        run: sqlx migrate run --source ../migrations
-
-      - name: Aplicar Seeds Fundacionais
-        run: psql $DATABASE_URL -f migrations/20261102000002_seeds_fundacionais.sql
+      - name: Validar Integridade dos 9 Cargos RBAC e 27 UFs
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF (SELECT COUNT(*) FROM cargos) <> 9 THEN RAISE EXCEPTION 'Falha na matriz de 9 cargos RBAC'; END IF; END \$\$;"
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF (SELECT COUNT(*) FROM territorios WHERE tipo = 'ESTADUAL') <> 27 THEN RAISE EXCEPTION 'Falha na carga das 27 UFs'; END IF; END \$\$;"
 
   geojson-validation:
     name: GeoJSON IBGE Integrity Check

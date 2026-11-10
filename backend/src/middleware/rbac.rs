@@ -40,7 +40,8 @@ impl AuthContext {
                 if let (Some(user_ibge), Some(dest_ibge)) = (&self.ibge_codigo, ibge_destino) {
                     if user_ibge != dest_ibge {
                         return Err(AppError::Forbidden(
-                            "Violação de Jurisdição Territorial: UF de destino diferente da autorizada.".to_string(),
+                            "Violação de Jurisdição Territorial: UF de destino diferente da autorizada."
+                                .to_string(),
                         ));
                     }
                 }
@@ -54,7 +55,8 @@ impl AuthContext {
                 if let (Some(user_ibge), Some(dest_ibge)) = (&self.ibge_codigo, ibge_destino) {
                     if user_ibge != dest_ibge {
                         return Err(AppError::Forbidden(
-                            "Violação de Jurisdição Territorial: Município de destino diferente do autorizado.".to_string(),
+                            "Violação de Jurisdição Territorial: Município de destino diferente do autorizado."
+                                .to_string(),
                         ));
                     }
                 }

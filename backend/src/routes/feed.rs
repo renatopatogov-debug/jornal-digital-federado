@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::models::{ModoEleitoralConfig, Noticia, StatusNoticia, TipoEscopo, TipoFormatoMateria};
+use crate::models::{ModoEleitoralConfig, Noticia, TipoEscopo, TipoFormatoMateria};
 use axum::{
     extract::{Query, State},
     Json,
@@ -42,7 +42,7 @@ pub struct NoticiaFeedItem {
     pub publicado_em: Option<String>,
     pub votos_positivos: i32,
     pub votos_negativos: i32,
-    pub hype_score: Option<f64>, // Oculto visualmente se modo_eleitoral_ativo for true (ADR D6)
+    pub hype_score: Option<f64>,
 }
 
 pub async fn get_feed(
@@ -50,8 +50,8 @@ pub async fn get_feed(
     Query(params): Query<FeedQueryParams>,
 ) -> Result<Json<FeedResponse>, AppError> {
     // 1. Inspecionar Contrato Operacional do Modo Eleitoral (ADR D6)
-    let config_row = sqlx::query!(
-        r#"SELECT valor FROM configuracoes WHERE chave = 'modo_eleitoral'"#
+    let config_val: Option<serde_json::Value> = sqlx::query_scalar(
+        r#"SELECT valor FROM configuracoes WHERE chave = 'modo_eleitoral'"#,
     )
     .fetch_optional(&pool)
     .await?;
@@ -59,8 +59,8 @@ pub async fn get_feed(
     let mut modo_eleitoral_ativo = false;
     let mut banner_texto: Option<String> = None;
 
-    if let Some(row) = config_row {
-        if let Ok(config) = serde_json::from_value::<ModoEleitoralConfig>(row.valor) {
+    if let Some(valor) = config_val {
+        if let Ok(config) = serde_json::from_value::<ModoEleitoralConfig>(valor) {
             modo_eleitoral_ativo = config.ativo;
             if config.ativo && config.banner_obrigatorio {
                 banner_texto = Some(config.banner_texto);
@@ -78,15 +78,14 @@ pub async fn get_feed(
         .map(|s| format!("%{}%", s));
 
     // 2. Consulta parametrizada com filtros combinados (IBGE, UF, Busca Textual e Formato)
-    // ADR D6: Se modo_eleitoral_ativo = true -> publicado_em DESC; senão -> hype_score DESC, publicado_em DESC
     let query_str = if modo_eleitoral_ativo {
         r#"
-        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.autor_id, n.escopo as "escopo: TipoEscopo",
-               n.ibge_codigo, n.formato as "formato: TipoFormatoMateria", n.video_url, n.audio_url,
+        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.autor_id, n.escopo,
+               n.ibge_codigo, n.formato, n.video_url, n.audio_url,
                n.audio_duracao_segundos, n.pdf_edicao_url, n.pdf_numero_paginas,
                n.conteudo_sanitizado, n.imagem_destaque_url,
-               n.status as "status: StatusNoticia", n.votos_positivos, n.votos_negativos,
-               n.hype_score::float8 as "hype_score!", n.publicado_em, n.criado_em
+               n.status, n.votos_positivos, n.votos_negativos,
+               n.hype_score::float8 as hype_score, n.publicado_em, n.criado_em
         FROM noticias n
         LEFT JOIN territorios t ON n.ibge_codigo = t.codigo_ibge
         WHERE n.status = 'PUBLICADO'
@@ -99,12 +98,12 @@ pub async fn get_feed(
         "#
     } else {
         r#"
-        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.autor_id, n.escopo as "escopo: TipoEscopo",
-               n.ibge_codigo, n.formato as "formato: TipoFormatoMateria", n.video_url, n.audio_url,
+        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.autor_id, n.escopo,
+               n.ibge_codigo, n.formato, n.video_url, n.audio_url,
                n.audio_duracao_segundos, n.pdf_edicao_url, n.pdf_numero_paginas,
                n.conteudo_sanitizado, n.imagem_destaque_url,
-               n.status as "status: StatusNoticia", n.votos_positivos, n.votos_negativos,
-               n.hype_score::float8 as "hype_score!", n.publicado_em, n.criado_em
+               n.status, n.votos_positivos, n.votos_negativos,
+               n.hype_score::float8 as hype_score, n.publicado_em, n.criado_em
         FROM noticias n
         LEFT JOIN territorios t ON n.ibge_codigo = t.codigo_ibge
         WHERE n.status = 'PUBLICADO'
@@ -146,8 +145,11 @@ pub async fn get_feed(
             publicado_em: n.publicado_em.map(|d| d.to_rfc3339()),
             votos_positivos: n.votos_positivos,
             votos_negativos: n.votos_negativos,
-            // Em modo eleitoral, o Hype Score é omitido visualmente para neutralidade
-            hype_score: if modo_eleitoral_ativo { None } else { Some(n.hype_score) },
+            hype_score: if modo_eleitoral_ativo {
+                None
+            } else {
+                Some(n.hype_score)
+            },
         })
         .collect();
 

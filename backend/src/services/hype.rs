@@ -27,7 +27,7 @@ impl HypeEngine {
             return 0.0;
         }
 
-        let saldo_votos = (votos_positivos - votos_negativos) as f64;
+        let saldo_votos = f64::from(votos_positivos - votos_negativos);
         if saldo_votos <= 0.0 {
             return 0.0;
         }
@@ -53,5 +53,24 @@ impl HypeEngine {
 
         // Arredondamento para 6 casas decimais
         (score * 1_000_000.0).round() / 1_000_000.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_protecao_pequenos_municipios_abaixo_quorum() {
+        let agora = Utc::now();
+        let score = HypeEngine::calcular_score(&TipoEscopo::Municipal, 7, 1, Some(agora), agora);
+        assert_eq!(score, 0.0);
+    }
+
+    #[test]
+    fn test_calculo_gravitacional_qualificado() {
+        let agora = Utc::now();
+        let score = HypeEngine::calcular_score(&TipoEscopo::Municipal, 20, 2, Some(agora), agora);
+        assert!(score > 0.0);
     }
 }

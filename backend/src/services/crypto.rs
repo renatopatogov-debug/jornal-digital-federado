@@ -4,10 +4,12 @@ use aes_gcm::{
 };
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 pub struct CryptoService {
     cipher: Aes256Gcm,
 }
 
+#[allow(dead_code)]
 impl CryptoService {
     pub fn new(chave_mestra: &[u8; 32]) -> Self {
         let cipher = Aes256Gcm::new_from_slice(chave_mestra)
@@ -16,7 +18,11 @@ impl CryptoService {
     }
 
     /// ADR D8: Cifra o segredo TOTP gerando um envelope com Nonce (12B) + Ciphertext + Tag (16B)
-    pub fn cifrar_envelope(&self, dado_em_claro: &[u8], nonce_bytes: &[u8; 12]) -> Result<Vec<u8>, String> {
+    pub fn cifrar_envelope(
+        &self,
+        dado_em_claro: &[u8],
+        nonce_bytes: &[u8; 12],
+    ) -> Result<Vec<u8>, String> {
         let nonce = Nonce::from_slice(nonce_bytes);
         let ciphertext = self
             .cipher
@@ -34,7 +40,9 @@ impl CryptoService {
     /// ADR D8: Decifra o envelope validando a Tag de autenticação antes de retornar o segredo
     pub fn decifrar_envelope(&self, envelope: &[u8]) -> Result<Vec<u8>, String> {
         if envelope.len() < 28 {
-            return Err("Envelope corrompido ou menor que o tamanho mínimo de 28 bytes.".to_string());
+            return Err(
+                "Envelope corrompido ou menor que o tamanho mínimo de 28 bytes.".to_string(),
+            );
         }
 
         let (nonce_bytes, ciphertext_with_tag) = envelope.split_at(12);

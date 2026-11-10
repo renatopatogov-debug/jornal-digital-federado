@@ -9,33 +9,29 @@ use sqlx::PgPool;
 /// Rota: GET /metrics
 pub async fn prometheus_metrics(State(pool): State<PgPool>) -> impl IntoResponse {
     // 1. Contagem de notícias ativas e votos computados
-    let total_noticias = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) FROM noticias WHERE status = 'PUBLICADO'"#
+    let total_noticias: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM noticias WHERE status = 'PUBLICADO'"#,
     )
     .fetch_one(&pool)
     .await
-    .unwrap_or(Some(0))
     .unwrap_or(0);
 
-    let total_votos = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) FROM votos_noticias"#
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap_or(Some(0))
-    .unwrap_or(0);
+    let total_votos: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM votos_noticias"#)
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(0);
 
     // 2. Status do Modo Eleitoral (ADR D6)
-    let modo_eleitoral_row = sqlx::query!(
-        r#"SELECT valor FROM configuracoes WHERE chave = 'modo_eleitoral'"#
+    let modo_eleitoral_val: Option<serde_json::Value> = sqlx::query_scalar(
+        r#"SELECT valor FROM configuracoes WHERE chave = 'modo_eleitoral'"#,
     )
     .fetch_optional(&pool)
     .await
     .unwrap_or(None);
 
     let mut modo_eleitoral_gauge = 0;
-    if let Some(row) = modo_eleitoral_row {
-        if let Some(ativo) = row.valor.get("ativo").and_then(|v| v.as_bool()) {
+    if let Some(valor) = modo_eleitoral_val {
+        if let Some(ativo) = valor.get("ativo").and_then(|v| v.as_bool()) {
             if ativo {
                 modo_eleitoral_gauge = 1;
             }
@@ -61,7 +57,10 @@ pub async fn prometheus_metrics(State(pool): State<PgPool>) -> impl IntoResponse
 
     (
         StatusCode::OK,
-        [(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
+        [(
+            header::CONTENT_TYPE,
+            "text/plain; version=0.0.4; charset=utf-8",
+        )],
         metrics_payload,
     )
 }

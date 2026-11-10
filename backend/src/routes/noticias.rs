@@ -134,7 +134,7 @@ pub async fn criar_noticia(
     };
 
     // 4. Persistência transacional no PostgreSQL 16
-    let noticia = sqlx::query!(
+    let noticia_id: Uuid = sqlx::query_scalar(
         r#"
         INSERT INTO noticias (
             titulo, slug, subtitulo, autor_id, escopo, ibge_codigo,
@@ -150,28 +150,28 @@ pub async fn criar_noticia(
         )
         RETURNING id
         "#,
-        payload.titulo.trim(),
-        slug,
-        payload.subtitulo,
-        payload.autor_id,
-        payload.escopo as TipoEscopo,
-        payload.ibge_codigo,
-        formato as TipoFormatoMateria,
-        payload.video_url,
-        payload.audio_url,
-        payload.pdf_edicao_url,
-        payload.conteudo_html,
-        conteudo_sanitizado,
-        payload.imagem_destaque_url,
-        status_alvo.clone() as StatusNoticia,
-        publicar
     )
+    .bind(payload.titulo.trim())
+    .bind(&slug)
+    .bind(&payload.subtitulo)
+    .bind(payload.autor_id)
+    .bind(&payload.escopo)
+    .bind(&payload.ibge_codigo)
+    .bind(&formato)
+    .bind(&payload.video_url)
+    .bind(&payload.audio_url)
+    .bind(&payload.pdf_edicao_url)
+    .bind(&payload.conteudo_html)
+    .bind(&conteudo_sanitizado)
+    .bind(&payload.imagem_destaque_url)
+    .bind(&status_alvo)
+    .bind(publicar)
     .fetch_one(&pool)
     .await?;
 
     Ok(Json(CriarNoticiaResponse {
         sucesso: true,
-        noticia_id: noticia.id,
+        noticia_id,
         slug,
         status: status_alvo,
         conteudo_sanitizado,
@@ -190,16 +190,18 @@ pub async fn solicitar_escalonamento(
 ) -> Result<Json<EscalonamentoResponse>, AppError> {
     let valido = matches!(
         (&payload.escopo_origem, &payload.escopo_destino),
-        (TipoEscopo::Municipal, TipoEscopo::Estadual) | (TipoEscopo::Estadual, TipoEscopo::Nacional)
+        (TipoEscopo::Municipal, TipoEscopo::Estadual)
+            | (TipoEscopo::Estadual, TipoEscopo::Nacional)
     );
 
     if !valido {
         return Err(AppError::BadRequest(
-            "Direção de escalonamento inválida: deve ser MUNICIPAL -> ESTADUAL ou ESTADUAL -> NACIONAL.".to_string(),
+            "Direção de escalonamento inválida: deve ser MUNICIPAL -> ESTADUAL ou ESTADUAL -> NACIONAL."
+                .to_string(),
         ));
     }
 
-    let row = sqlx::query!(
+    let solicitacao_id: Uuid = sqlx::query_scalar(
         r#"
         INSERT INTO solicitacoes_escalonamento (
             noticia_id, solicitante_id, escopo_origem, escopo_destino, justificativa
@@ -207,18 +209,19 @@ pub async fn solicitar_escalonamento(
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id
         "#,
-        noticia_id,
-        payload.solicitante_id,
-        payload.escopo_origem as TipoEscopo,
-        payload.escopo_destino as TipoEscopo,
-        payload.justificativa
     )
+    .bind(noticia_id)
+    .bind(payload.solicitante_id)
+    .bind(&payload.escopo_origem)
+    .bind(&payload.escopo_destino)
+    .bind(&payload.justificativa)
     .fetch_one(&pool)
     .await?;
 
     Ok(Json(EscalonamentoResponse {
         sucesso: true,
-        solicitacao_id: row.id,
-        mensagem: "Solicitação de escalonamento editorial registrada para avaliação da instância superior.".to_string(),
+        solicitacao_id,
+        mensagem: "Solicitação de escalonamento editorial registrada para avaliação da instância superior."
+            .to_string(),
     }))
 }

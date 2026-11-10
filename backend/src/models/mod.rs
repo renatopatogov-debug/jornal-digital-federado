@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
-#[sqlx(type_name = "tipo_escopo", rename_all = "UPPERCASE")]
+#[sqlx(type_name = "tipo_escopo", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TipoEscopo {
     Nacional,
     Estadual,
@@ -11,7 +11,7 @@ pub enum TipoEscopo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
-#[sqlx(type_name = "status_usuario", rename_all = "UPPERCASE")]
+#[sqlx(type_name = "status_usuario", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StatusUsuario {
     Ativo,
     Suspenso,
@@ -19,7 +19,7 @@ pub enum StatusUsuario {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
-#[sqlx(type_name = "status_noticia", rename_all = "UPPERCASE")]
+#[sqlx(type_name = "status_noticia", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StatusNoticia {
     Rascunho,
     EmRevisao,
@@ -29,7 +29,7 @@ pub enum StatusNoticia {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
-#[sqlx(type_name = "tipo_formato_materia", rename_all = "UPPERCASE")]
+#[sqlx(type_name = "tipo_formato_materia", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TipoFormatoMateria {
     Texto,
     Video,
@@ -37,6 +37,7 @@ pub enum TipoFormatoMateria {
     ImpressoPdf,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Territorio {
     pub codigo_ibge: String,
@@ -48,6 +49,7 @@ pub struct Territorio {
     pub criado_em: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Cargo {
     pub id: i32,
@@ -70,6 +72,7 @@ pub struct Cargo {
     pub limite_ativacao_semanal: Option<i32>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Noticia {
     pub id: Uuid,
@@ -95,6 +98,7 @@ pub struct Noticia {
     pub criado_em: DateTime<Utc>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModoEleitoralConfig {
     pub ativo: bool,

@@ -8,7 +8,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use std::net::{IpAddr, Ipv4Addr};
 use uuid::Uuid;
 
@@ -38,41 +38,50 @@ pub async fn login(
     Json(payload): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     if payload.senha.trim().is_empty() {
-        return Err(AppError::BadRequest("A senha não pode estar vazia.".to_string()));
+        return Err(AppError::BadRequest(
+            "A senha não pode estar vazia.".to_string(),
+        ));
     }
 
     // Busca usuário ativo no PostgreSQL 16
-    let usuario = sqlx::query!(
+    let row = sqlx::query(
         r#"
-        SELECT id, senha_hash, totp_habilitado, status as "status: String"
+        SELECT id, totp_habilitado, status::text as status
         FROM usuarios
         WHERE email = $1
         "#,
-        payload.email.trim()
     )
+    .bind(payload.email.trim())
     .fetch_optional(&pool)
     .await?;
 
-    let usuario = match usuario {
+    let row = match row {
         Some(u) => u,
-        None => return Err(AppError::Unauthorized("Credenciais inválidas.".to_string())),
+        None => {
+            return Err(AppError::Unauthorized("Credenciais inválidas.".to_string()));
+        }
     };
 
-    if usuario.status != "ATIVO" {
+    let usuario_id: Uuid = row.try_get("id")?;
+    let totp_habilitado: bool = row.try_get("totp_habilitado")?;
+    let status: String = row.try_get("status")?;
+
+    if status != "ATIVO" {
         return Err(AppError::Forbidden(
             "Usuário suspenso ou pendente de ativação pelo líder diretorial.".to_string(),
         ));
     }
 
     // Se 2FA estiver ativo, requer etapa subsequente de desafio TOTP ou Passkey
-    if usuario.totp_habilitado {
+    if totp_habilitado {
         return Ok((
             HeaderMap::new(),
             Json(LoginResponse {
                 sucesso: true,
                 requer_2fa: true,
-                usuario_id: Some(usuario.id),
-                mensagem: "Credencial validada. Confirme o segundo fator (Google Authenticator ou Passkey).".to_string(),
+                usuario_id: Some(usuario_id),
+                mensagem: "Credencial validada. Confirme o segundo fator (Google Authenticator ou Passkey)."
+                    .to_string(),
             }),
         ));
     }
@@ -83,7 +92,7 @@ pub async fn login(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("JornalClient/2.1");
     let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-    let token = SessionManager::criar_sessao(&pool, usuario.id, ip, user_agent).await?;
+    let token = SessionManager::criar_sessao(&pool, usuario_id, ip, user_agent).await?;
 
     let mut response_headers = HeaderMap::new();
     if let Ok(cookie_val) = HeaderValue::from_str(&format!(
@@ -98,7 +107,7 @@ pub async fn login(
         Json(LoginResponse {
             sucesso: true,
             requer_2fa: false,
-            usuario_id: Some(usuario.id),
+            usuario_id: Some(usuario_id),
             mensagem: "Login realizado e sessão HTTP-Only emitida com sucesso.".to_string(),
         }),
     ))

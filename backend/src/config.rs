@@ -1,5 +1,6 @@
 use std::env;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct AppConfig {
     pub host: String,
@@ -22,11 +23,12 @@ impl AppConfig {
             .parse::<u16>()
             .map_err(|e| format!("PORT inválida: {}", e))?;
 
-        let database_url = env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/jornal_federado".to_string());
+        let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:postgres@localhost:5432/jornal_federado".to_string()
+        });
 
-        let redis_url = env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+        let redis_url =
+            env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
         let database_max_connections = env::var("DATABASE_MAX_CONNECTIONS")
             .unwrap_or_else(|_| "20".to_string())

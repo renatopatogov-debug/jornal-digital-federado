@@ -5,10 +5,7 @@ use sqlx::PgPool;
 
 pub async fn health_check(State(pool): State<PgPool>) -> Result<Json<Value>, AppError> {
     // Validação de conectividade ativa com PostgreSQL 16
-    sqlx::query("SELECT 1")
-        .execute(&pool)
-        .await
-        .map_err(|e| AppError::Database(e))?;
+    sqlx::query("SELECT 1").execute(&pool).await?;
 
     Ok(Json(json!({
         "status": "healthy",

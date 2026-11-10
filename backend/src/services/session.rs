@@ -26,17 +26,17 @@ impl SessionManager {
         let token_hash = CryptoService::hash_token_sha256(&token);
         let expira_em = Utc::now() + Duration::days(7);
 
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO sessoes (token_hash, usuario_id, ip_origem, user_agent, expira_em)
             VALUES ($1, $2, $3::text::inet, $4, $5)
             "#,
-            token_hash,
-            usuario_id,
-            ip_origem.to_string(),
-            user_agent,
-            expira_em
         )
+        .bind(token_hash)
+        .bind(usuario_id)
+        .bind(ip_origem.to_string())
+        .bind(user_agent)
+        .bind(expira_em)
         .execute(pool)
         .await?;
 
@@ -46,12 +46,10 @@ impl SessionManager {
     /// Invalida e remove a sessão (logout)
     pub async fn revogar_sessao(pool: &PgPool, token: &str) -> Result<(), sqlx::Error> {
         let token_hash = CryptoService::hash_token_sha256(token);
-        sqlx::query!(
-            r#"DELETE FROM sessoes WHERE token_hash = $1"#,
-            token_hash
-        )
-        .execute(pool)
-        .await?;
+        sqlx::query(r#"DELETE FROM sessoes WHERE token_hash = $1"#)
+            .bind(token_hash)
+            .execute(pool)
+            .await?;
 
         Ok(())
     }
