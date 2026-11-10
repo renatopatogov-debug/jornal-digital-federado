@@ -33,8 +33,8 @@ pub fn sanitizar_html_editorial(raw_html: &str) -> String {
     // Esquemas seguros de URLs
     builder.url_schemes(HashSet::from(["http", "https", "mailto"]));
 
-    // Restrição estrita de atributos
-    builder.add_tag_attributes("a", &["href", "title", "target", "rel"]);
+    // Restrição estrita de atributos ("rel" é gerenciado exclusivamente via link_rel abaixo)
+    builder.add_tag_attributes("a", &["href", "title", "target"]);
     builder.add_tag_attributes("img", &["src", "alt", "title", "loading", "width", "height"]);
 
     // Forçar rel seguro para mitigar tabnabbing
