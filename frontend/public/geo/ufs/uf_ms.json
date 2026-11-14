@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "5000001",
+        "nome": "Capital Mato Grosso do Sul",
+        "uf": "MS"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -54.975,
+              -20.375
+            ],
+            [
+              -54.625,
+              -20.375
+            ],
+            [
+              -54.625,
+              -20.625
+            ],
+            [
+              -54.975,
+              -20.625
+            ],
+            [
+              -54.975,
+              -20.375
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

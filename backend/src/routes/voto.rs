@@ -1,5 +1,6 @@
 use crate::error::AppError;
-use crate::models::TipoEscopo;
+use crate::middleware::rbac::AuthContext;
+use crate::models::{StatusUsuario, TipoEscopo};
 use crate::services::hype::HypeEngine;
 use axum::{
     extract::{Path, State},
@@ -12,7 +13,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 pub struct SubmeterVotoRequest {
-    pub usuario_id: Uuid,
     pub tipo_voto: i16,
 }
 
@@ -27,6 +27,7 @@ pub struct VotoResponse {
 }
 
 pub async fn submeter_voto(
+    auth: AuthContext,
     State(pool): State<PgPool>,
     Path(noticia_id): Path<Uuid>,
     Json(payload): Json<SubmeterVotoRequest>,
@@ -37,29 +38,9 @@ pub async fn submeter_voto(
         ));
     }
 
-    // 1. Validar elegibilidade eleitoral do filiado (ADR D1)
-    let row = sqlx::query(
-        r#"
-        SELECT status::text as status, filiado_verificado
-        FROM usuarios
-        WHERE id = $1
-        "#,
-    )
-    .bind(payload.usuario_id)
-    .fetch_optional(&pool)
-    .await?;
-
-    let row = match row {
-        Some(u) => u,
-        None => {
-            return Err(AppError::Unauthorized("Usuário não encontrado.".to_string()));
-        }
-    };
-
-    let status: String = row.try_get("status")?;
-    let filiado_verificado: bool = row.try_get("filiado_verificado")?;
-
-    if status != "ATIVO" || !filiado_verificado {
+    // 1. Validar elegibilidade eleitoral do filiado autenticado (ADR D1)
+    if !auth.cargo.pode_votar_hype || !auth.filiado_verificado || auth.status != StatusUsuario::Ativo
+    {
         return Err(AppError::Forbidden(
             "Votação exclusiva para filiados partidários formalmente verificados e ativos."
                 .to_string(),
@@ -74,7 +55,7 @@ pub async fn submeter_voto(
           AND criado_em >= NOW() - INTERVAL '1 minute'
         "#,
     )
-    .bind(payload.usuario_id)
+    .bind(auth.usuario_id)
     .fetch_one(&pool)
     .await?;
 
@@ -94,7 +75,7 @@ pub async fn submeter_voto(
         "#,
     )
     .bind(noticia_id)
-    .bind(payload.usuario_id)
+    .bind(auth.usuario_id)
     .bind(payload.tipo_voto)
     .execute(&mut *tx)
     .await;
@@ -125,15 +106,25 @@ pub async fn submeter_voto(
         UPDATE noticias
         SET votos_positivos = votos_positivos + $1,
             votos_negativos = votos_negativos + $2
-        WHERE id = $3
+        WHERE id = $3 AND status = 'PUBLICADO'
         RETURNING votos_positivos, votos_negativos, escopo, publicado_em
         "#,
     )
     .bind(inc_pos)
     .bind(inc_neg)
     .bind(noticia_id)
-    .fetch_one(&mut *tx)
+    .fetch_optional(&mut *tx)
     .await?;
+
+    let noticia_row = match noticia_row {
+        Some(row) => row,
+        None => {
+            let _ = tx.rollback().await;
+            return Err(AppError::NotFound(
+                "Matéria não encontrada ou ainda não publicada.".to_string(),
+            ));
+        }
+    };
 
     let votos_positivos: i32 = noticia_row.try_get("votos_positivos")?;
     let votos_negativos: i32 = noticia_row.try_get("votos_negativos")?;

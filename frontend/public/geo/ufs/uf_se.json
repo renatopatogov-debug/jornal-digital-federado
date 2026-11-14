@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2800001",
+        "nome": "Capital Sergipe",
+        "uf": "SE"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -37.575,
+              -10.475
+            ],
+            [
+              -37.225,
+              -10.475
+            ],
+            [
+              -37.225,
+              -10.725
+            ],
+            [
+              -37.575,
+              -10.725
+            ],
+            [
+              -37.575,
+              -10.475
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "1600001",
+        "nome": "Capital Amapá",
+        "uf": "AP"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -51.975,
+              1.525
+            ],
+            [
+              -51.625,
+              1.525
+            ],
+            [
+              -51.625,
+              1.275
+            ],
+            [
+              -51.975,
+              1.275
+            ],
+            [
+              -51.975,
+              1.525
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

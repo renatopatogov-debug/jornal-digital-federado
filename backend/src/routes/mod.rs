@@ -33,10 +33,28 @@ pub fn build_api_router(pool: PgPool) -> Router {
             post(noticias::preview_sanitizado),
         )
         .route(
+            "/api/v1/noticias/:id",
+            get(noticias::obter_noticia_por_slug),
+        )
+        .route(
             "/api/v1/noticias/:id/escalonar",
             post(noticias::solicitar_escalonamento),
         )
         // Ledger de Votação (ADRs D1 e D2)
         .route("/api/v1/noticias/:id/voto", post(voto::submeter_voto))
         .with_state(pool)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_api_router;
+    use sqlx::postgres::PgPoolOptions;
+
+    #[tokio::test]
+    async fn router_construido_sem_conflito_de_parametros() {
+        let pool = PgPoolOptions::new()
+            .connect_lazy("postgres://postgres:postgres@localhost:5432/jornal_test")
+            .expect("pool lazy válido");
+        let _router = build_api_router(pool);
+    }
 }

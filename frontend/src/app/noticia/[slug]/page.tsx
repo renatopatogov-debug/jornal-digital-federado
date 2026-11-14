@@ -58,27 +58,29 @@ async function fetchNoticiaPorSlug(slug: string): Promise<{
 } | null> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
   try {
-    const res = await fetch(`${apiUrl}/api/v1/feed?limit=50`, {
+    const res = await fetch(`${apiUrl}/api/v1/noticias/${encodeURIComponent(slug)}`, {
       next: { revalidate: 30 },
     });
+    if (res.status === 404) {
+      return null;
+    }
     if (res.ok) {
       const data = await res.json();
-      const item = data.noticias?.find((n: any) => n.slug === slug);
-      if (item) {
+      if (data?.noticia) {
         return {
           noticia: {
-            ...item,
-            formato: item.formato || "TEXTO",
-            autor_nome: "Redação Federada",
-            votos_positivos: item.votos_positivos ?? 12,
-            votos_negativos: item.votos_negativos ?? 1,
+            ...data.noticia,
+            formato: data.noticia.formato || "TEXTO",
+            autor_nome: data.noticia.autor_nome || "Redação Federada",
+            votos_positivos: data.noticia.votos_positivos ?? 0,
+            votos_negativos: data.noticia.votos_negativos ?? 0,
           },
-          modoEleitoral: data.modo_eleitoral_ativo,
+          modoEleitoral: Boolean(data.modo_eleitoral_ativo),
         };
       }
     }
-  } catch (e) {
-    // Modo offline resiliente
+  } catch {
+    // Fallback offline apenas se a API estiver indisponível
   }
 
   // Fallback demo para visualização imediata da UX

@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "1100001",
+        "nome": "Capital Rondônia",
+        "uf": "RO"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -62.975,
+              -10.775
+            ],
+            [
+              -62.625,
+              -10.775
+            ],
+            [
+              -62.625,
+              -11.025
+            ],
+            [
+              -62.975,
+              -11.025
+            ],
+            [
+              -62.975,
+              -10.775
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

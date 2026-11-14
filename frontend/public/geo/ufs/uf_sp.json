@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "3550308",
+        "nome": "São Paulo",
+        "uf": "SP"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -46.805,
+              -23.425
+            ],
+            [
+              -46.455,
+              -23.425
+            ],
+            [
+              -46.455,
+              -23.675
+            ],
+            [
+              -46.805,
+              -23.675
+            ],
+            [
+              -46.805,
+              -23.425
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

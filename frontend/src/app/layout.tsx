@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BannerEleitoral } from "@/components/BannerEleitoral";
 
@@ -6,12 +6,15 @@ export const metadata: Metadata = {
   title: "Jornal Digital Federado — Notícias e Participação",
   description: "Plataforma editorial federada aberta com ranking auditável e neutralidade eleitoral estrita (Lei nº 9.504/97).",
   manifest: "/manifest.webmanifest",
-  themeColor: "#2563eb",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Jornal Federado",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#8b261d",
 };
 
 async function getModoEleitoralStatus() {
@@ -62,7 +65,7 @@ export default async function RootLayout({
               <a href="/" className="text-slate-300 hover:text-white transition-colors">
                 Feeds
               </a>
-              <a href="/territorio" className="text-slate-300 hover:text-white transition-colors">
+              <a href="/#mapa" className="text-slate-300 hover:text-white transition-colors">
                 Mapa Brasil
               </a>
               <a href="/cms" className="text-blue-400 hover:text-blue-300 transition-colors">

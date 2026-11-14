@@ -21,44 +21,57 @@ export const BotaoVotar: React.FC<BotaoVotarProps> = ({
   const [votou, setVotou] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const [erroVoto, setErroVoto] = useState(false);
   const [requerLogin, setRequerLogin] = useState(false);
 
   const submeterVoto = async (tipo: number) => {
     if (votou !== null) return;
-    setCarregando(true);
     setMensagem(null);
+    setErroVoto(false);
     setRequerLogin(false);
 
+    const usuarioId =
+      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
+    if (!usuarioId) {
+      setRequerLogin(true);
+      setErroVoto(true);
+      setMensagem("Faça login como filiado verificado para registrar seu voto no ledger.");
+      return;
+    }
+
+    setCarregando(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
-      // Simulação com UUID de filiado ativo se autenticado
       const res = await fetch(`${apiUrl}/api/v1/noticias/${noticiaId}/voto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
-          usuario_id: "00000000-0000-0000-0000-000000000002",
+          usuario_id: usuarioId,
           tipo_voto: tipo,
         }),
       });
 
-      const data = await res.json();
+      const data: { mensagem?: string } | null = await res.json().catch(() => null);
       if (res.ok) {
         setVotou(tipo);
         if (tipo === 1) setPositivos((p) => p + 1);
         if (tipo === -1) setNegativos((n) => n + 1);
-        setMensagem("Seu voto foi persistido no ledger auditável (1 filiado = 1 voto).");
+        setMensagem(
+          data?.mensagem ||
+            "Seu voto foi persistido no ledger auditável (1 filiado = 1 voto)."
+        );
       } else if (res.status === 401 || res.status === 403) {
         setRequerLogin(true);
-        setMensagem(data.mensagem || "Apenas filiados verificados podem votar no Hype.");
+        setErroVoto(true);
+        setMensagem(data?.mensagem || "Apenas filiados verificados podem votar no Hype.");
       } else {
-        setMensagem(data.mensagem || "Não foi possível computar o voto.");
+        setErroVoto(true);
+        setMensagem(data?.mensagem || "Não foi possível computar o voto.");
       }
-    } catch (err) {
-      // Simulação para o preview caso a API esteja offline
-      setVotou(tipo);
-      if (tipo === 1) setPositivos((p) => p + 1);
-      if (tipo === -1) setNegativos((n) => n + 1);
-      setMensagem("Voto registrado com sucesso no ledger local!");
+    } catch {
+      setErroVoto(true);
+      setMensagem("Não foi possível conectar ao ledger de votos. Tente novamente em instantes.");
     } finally {
       setCarregando(false);
     }
@@ -109,13 +122,13 @@ export const BotaoVotar: React.FC<BotaoVotarProps> = ({
       {mensagem && (
         <div
           className={`text-xs p-3 rounded-lg flex items-center justify-between gap-2 ${
-            requerLogin
+            requerLogin || erroVoto
               ? "bg-amber-50 text-amber-800 border border-amber-200"
               : "bg-emerald-50 text-emerald-800 border border-emerald-200"
           }`}
         >
           <div className="flex items-center gap-2">
-            {requerLogin ? (
+            {requerLogin || erroVoto ? (
               <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
             ) : (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
@@ -125,7 +138,7 @@ export const BotaoVotar: React.FC<BotaoVotarProps> = ({
 
           {requerLogin && (
             <a
-              href="/auth/login"
+              href="/auth/filiado"
               className="flex items-center gap-1 font-bold text-amber-900 underline text-[11px]"
             >
               <LogIn className="w-3.5 h-3.5" />

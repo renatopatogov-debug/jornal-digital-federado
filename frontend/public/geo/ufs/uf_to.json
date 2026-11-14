@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "1700001",
+        "nome": "Capital Tocantins",
+        "uf": "TO"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -48.475,
+              -10.075
+            ],
+            [
+              -48.125,
+              -10.075
+            ],
+            [
+              -48.125,
+              -10.325
+            ],
+            [
+              -48.475,
+              -10.325
+            ],
+            [
+              -48.475,
+              -10.075
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

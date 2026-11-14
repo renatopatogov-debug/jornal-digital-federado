@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "5200001",
+        "nome": "Capital Goiás",
+        "uf": "GO"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -49.775,
+              -15.775
+            ],
+            [
+              -49.425,
+              -15.775
+            ],
+            [
+              -49.425,
+              -16.025
+            ],
+            [
+              -49.775,
+              -16.025
+            ],
+            [
+              -49.775,
+              -15.775
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

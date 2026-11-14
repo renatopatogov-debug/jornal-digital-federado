@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[sqlx(type_name = "tipo_escopo", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TipoEscopo {
     Nacional,
@@ -11,6 +12,7 @@ pub enum TipoEscopo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[sqlx(type_name = "status_usuario", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StatusUsuario {
     Ativo,
@@ -19,6 +21,7 @@ pub enum StatusUsuario {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[sqlx(type_name = "status_noticia", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StatusNoticia {
     Rascunho,
@@ -29,6 +32,7 @@ pub enum StatusNoticia {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[sqlx(type_name = "tipo_formato_materia", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TipoFormatoMateria {
     Texto,

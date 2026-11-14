@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "1500001",
+        "nome": "Capital Pará",
+        "uf": "PA"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -52.575,
+              -3.875
+            ],
+            [
+              -52.225,
+              -3.875
+            ],
+            [
+              -52.225,
+              -4.125
+            ],
+            [
+              -52.575,
+              -4.125
+            ],
+            [
+              -52.575,
+              -3.875
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

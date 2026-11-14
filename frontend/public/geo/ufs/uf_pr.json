@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "4106900",
+        "nome": "Curitiba",
+        "uf": "PR"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -49.445,
+              -25.305
+            ],
+            [
+              -49.095,
+              -25.305
+            ],
+            [
+              -49.095,
+              -25.555
+            ],
+            [
+              -49.445,
+              -25.555
+            ],
+            [
+              -49.445,
+              -25.305
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -107,8 +107,9 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
         onSelectFormato={setFormatoAtivo}
       />
 
-      {/* Botão Mobile para Abrir/Ocultar o Mapa sem empurrar o Feed */}
-      <div className="lg:hidden">
+      {/* Âncora do Mapa Brasil (#mapa) + Controle Mobile */}
+      <div id="mapa" className="scroll-mt-20">
+        <div className="lg:hidden">
         <button
           type="button"
           onClick={() => setMapaMobileAberto(!mapaMobileAberto)}
@@ -128,6 +129,7 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
             <MapaFederado onSelectTerritorio={handleSelectTerritorioMapa} />
           </div>
         )}
+        </div>
       </div>
 
       {/* Grid Principal: Feed + Coluna Lateral do Mapa no Desktop */}

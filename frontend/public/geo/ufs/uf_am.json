@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "1300001",
+        "nome": "Capital Amazonas",
+        "uf": "AM"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -64.775,
+              -3.975
+            ],
+            [
+              -64.425,
+              -3.975
+            ],
+            [
+              -64.425,
+              -4.225
+            ],
+            [
+              -64.775,
+              -4.225
+            ],
+            [
+              -64.775,
+              -3.975
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

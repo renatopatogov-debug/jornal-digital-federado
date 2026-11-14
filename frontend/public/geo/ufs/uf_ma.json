@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2100001",
+        "nome": "Capital Maranhão",
+        "uf": "MA"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -45.475,
+              -4.875
+            ],
+            [
+              -45.125,
+              -4.875
+            ],
+            [
+              -45.125,
+              -5.125
+            ],
+            [
+              -45.475,
+              -5.125
+            ],
+            [
+              -45.475,
+              -4.875
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

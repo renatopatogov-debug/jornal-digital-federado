@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2200001",
+        "nome": "Capital Piauí",
+        "uf": "PI"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -42.975,
+              -7.075
+            ],
+            [
+              -42.625,
+              -7.075
+            ],
+            [
+              -42.625,
+              -7.325
+            ],
+            [
+              -42.975,
+              -7.325
+            ],
+            [
+              -42.975,
+              -7.075
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

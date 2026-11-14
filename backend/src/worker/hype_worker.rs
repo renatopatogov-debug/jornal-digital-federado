@@ -58,8 +58,10 @@ impl HypeWorker {
             return Ok(());
         }
 
-        // 3. Recalcular e atualizar em lote
-        let mut atualizadas = 0;
+        // 3. Recalcular em memória e atualizar em uma única operação SQL em lote (elimina N+1)
+        let mut ids: Vec<Uuid> = Vec::with_capacity(rows.len());
+        let mut scores: Vec<f64> = Vec::with_capacity(rows.len());
+
         for row in rows {
             let id: Uuid = row.try_get("id")?;
             let escopo: TipoEscopo = row.try_get("escopo")?;
@@ -75,20 +77,24 @@ impl HypeWorker {
                 agora,
             );
 
-            sqlx::query(
-                r#"
-                UPDATE noticias
-                SET hype_score = $1::float8::numeric
-                WHERE id = $2
-                "#,
-            )
-            .bind(novo_score)
-            .bind(id)
-            .execute(pool)
-            .await?;
-
-            atualizadas += 1;
+            ids.push(id);
+            scores.push(novo_score);
         }
+
+        let atualizadas = ids.len();
+
+        sqlx::query(
+            r#"
+            UPDATE noticias AS n
+            SET hype_score = v.score::numeric
+            FROM UNNEST($1::uuid[], $2::float8[]) AS v(id, score)
+            WHERE n.id = v.id
+            "#,
+        )
+        .bind(&ids)
+        .bind(&scores)
+        .execute(pool)
+        .await?;
 
         // 4. Registro de auditoria caso o recálculo tenha ocorrido em modo silencioso
         if modo_eleitoral_ativo {

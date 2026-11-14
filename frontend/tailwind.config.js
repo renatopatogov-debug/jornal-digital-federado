@@ -16,6 +16,7 @@ module.exports = {
         rule: "#2a251d",
         ruleSoft: "#c0b59d",
         accentStamp: "#8f1f17",
+        destaque: "#8b261d",
         voteUpBg: "#d7ebd9",
         voteUpBorder: "#6fa878",
         voteUpInk: "#153d1e",
@@ -24,6 +25,9 @@ module.exports = {
         voteDownBorder: "#d48b84",
         voteDownInk: "#5e1c18",
         voteDownBar: "#a33b33",
+      },
+      animation: {
+        "spin-slow": "spin 8s linear infinite",
       },
       fontFamily: {
         display: ['"Playfair Display"', 'Georgia', 'serif'],

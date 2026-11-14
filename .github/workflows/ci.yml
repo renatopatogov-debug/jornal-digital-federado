@@ -86,3 +86,26 @@ jobs:
 
       - name: Validar e Gerar Malha das 27 UFs
         run: python scripts/pipeline_ibge_geojson.py
+
+  frontend-ci:
+    name: Frontend Build & TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar Dependências (Frontend)
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+
+      - name: Verificação de Tipos TypeScript
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Build de Produção Next.js
+        working-directory: frontend
+        run: npm run build

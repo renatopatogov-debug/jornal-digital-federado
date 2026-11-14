@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   PenTool,
   Send,
@@ -85,6 +85,7 @@ export default function CMSPage() {
     "<p>O diretório reuniu lideranças e filiados para debater as prioridades regionais do próximo semestre.</p>\n<h2>Principais Deliberações</h2>\n<p>Foram aprovadas metas de expansão da comunicação comunitária e formação política continuada.</p>"
   );
   const [modoVisualizacao, setModoVisualizacao] = useState<"editor" | "split" | "preview">("split");
+  const [conteudoSanitizadoPreview, setConteudoSanitizadoPreview] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [mensagemFeedback, setMensagemFeedback] = useState<{
     tipo: "sucesso" | "alerta";
@@ -121,7 +122,39 @@ export default function CMSPage() {
   const [cotaAtivacoesUsada, setCotaAtivacoesUsada] = useState(14);
   const [emailNovoFiliado, setEmailNovoFiliado] = useState("");
   const [cpfHashNovoFiliado, setCpfHashNovoFiliado] = useState("");
+  const [liderDissidenteAlvo, setLiderDissidenteAlvo] = useState("");
   const [motivoKillSwitch, setMotivoKillSwitch] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+        const res = await fetch(`${apiUrl}/api/v1/noticias/preview-sanitizado`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          signal: controller.signal,
+          body: JSON.stringify({ conteudo_html: conteudoHtml }),
+        });
+        if (res.ok) {
+          const data: { conteudo_sanitizado?: string } | null = await res.json().catch(() => null);
+          setConteudoSanitizadoPreview(data?.conteudo_sanitizado ?? null);
+        } else {
+          setConteudoSanitizadoPreview(null);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setConteudoSanitizadoPreview(null);
+        }
+      }
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [conteudoHtml]);
 
   // Código IBGE final resolvido conforme o escopo
   const codigoIbgeFinal = useMemo(() => {
@@ -162,12 +195,21 @@ export default function CMSPage() {
   }, [conteudoHtml]);
 
   const submeterMateria = async (publicarAgora: boolean) => {
-    setEnviando(true);
     setMensagemFeedback(null);
+    const autorId =
+      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
+    if (!autorId) {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Sessão editorial não identificada. Faça login em /auth/admin antes de publicar.",
+      });
+      return;
+    }
 
+    setEnviando(true);
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
     const payload = {
-      autor_id: "00000000-0000-0000-0000-000000000001",
+      autor_id: autorId,
       titulo,
       subtitulo: subtitulo || null,
       escopo,
@@ -185,121 +227,240 @@ export default function CMSPage() {
       const res = await fetch(`${apiUrl}/api/v1/noticias`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setAcervo((prev) => [
-          {
-            id: data.id,
-            titulo,
-            slug: data.slug,
-            escopo,
-            ibge_codigo: codigoIbgeFinal || undefined,
-            formato,
-            status: publicarAgora ? "PUBLICADO" : "RASCUNHO",
-            hype_score: 0.0,
-            publicado_em: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
+      const data: {
+        noticia_id?: string;
+        id?: string;
+        slug?: string;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+
+      if (!res.ok || !data) {
         setMensagemFeedback({
-          tipo: "sucesso",
-          texto: publicarAgora
-            ? `Matéria publicada no Feed (${escopo}) e sanitizada via Ammonia! Slug: /noticia/${data.slug}`
-            : `Rascunho salvo com segurança no acervo editorial (${data.slug}).`,
+          tipo: "alerta",
+          texto: data?.mensagem || "Não foi possível publicar ou salvar a matéria no servidor.",
         });
-        setTitulo("");
-        setSubtitulo("");
-      } else {
-        throw new Error("Modo demonstração local");
+        return;
       }
-    } catch {
-      // Fallback resiliente para validação de UX mesmo com backend offline
-      const slugGerado = titulo
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
+
+      const noticiaId = data.noticia_id || data.id || `srv-${Date.now()}`;
+      const slugFinal = data.slug || "materia";
 
       setAcervo((prev) => [
         {
-          id: `demo-${Date.now()}`,
+          id: noticiaId,
           titulo,
-          slug: slugGerado || "nova-materia",
+          slug: slugFinal,
           escopo,
           ibge_codigo: codigoIbgeFinal || undefined,
           formato,
           status: publicarAgora ? "PUBLICADO" : "RASCUNHO",
-          hype_score: 1.0,
+          hype_score: 0.0,
           publicado_em: new Date().toISOString(),
         },
         ...prev,
       ]);
-
       setMensagemFeedback({
         tipo: "sucesso",
-        texto: publicarAgora
-          ? `Matéria publicada e sanitizada com sucesso! Disponível no Acervo (${escopo}).`
-          : "Rascunho editorial salvo no Acervo para revisão posterior.",
+        texto:
+          data.mensagem ||
+          (publicarAgora
+            ? `Matéria publicada no Feed (${escopo}) e sanitizada via Ammonia! Slug: /noticia/${slugFinal}`
+            : `Rascunho salvo com segurança no acervo editorial (${slugFinal}).`),
       });
       setTitulo("");
       setSubtitulo("");
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Falha de comunicação com a API editorial ao tentar salvar a matéria.",
+      });
     } finally {
       setEnviando(false);
     }
   };
 
   const handleSolicitarEscalonamento = async (id: string, destino: "ESTADUAL" | "NACIONAL") => {
+    setMensagemFeedback(null);
+    const solicitanteId =
+      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
+    const item = acervo.find((m) => m.id === id);
+
+    if (!solicitanteId) {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Sessão editorial não identificada. Faça login em /auth/admin para solicitar escalonamento.",
+      });
+      return;
+    }
+    if (!item) {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Matéria não encontrada no acervo atual.",
+      });
+      return;
+    }
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
     try {
-      await fetch(`${apiUrl}/api/v1/noticias/${id}/escalonar`, {
+      const res = await fetch(`${apiUrl}/api/v1/noticias/${id}/escalonar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
+          solicitante_id: solicitanteId,
+          escopo_origem: item.escopo,
           escopo_destino: destino,
           justificativa: "Alto engajamento no Hype regional e relevância federativa.",
         }),
       });
-    } catch {
-      // Continua em modo demonstração
-    }
 
-    setAcervo((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, escalonamento_solicitado: destino } : m))
-    );
-    setMensagemFeedback({
-      tipo: "sucesso",
-      texto: `Solicitação de escalonamento para a vitrine ${destino} enviada à mesa editora superior!`,
-    });
+      const data: { sucesso?: boolean; mensagem?: string } | null = await res
+        .json()
+        .catch(() => null);
+
+      if (!res.ok || !data?.sucesso) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Não foi possível registrar o pedido de escalonamento.",
+        });
+        return;
+      }
+
+      setAcervo((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, escalonamento_solicitado: destino } : m))
+      );
+      setMensagemFeedback({
+        tipo: "sucesso",
+        texto:
+          data.mensagem ||
+          `Solicitação de escalonamento para a vitrine ${destino} enviada à mesa editora superior!`,
+      });
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Erro de comunicação com a API ao solicitar escalonamento editorial.",
+      });
+    }
   };
 
   const handleAtivarFiliado = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMensagemFeedback(null);
     if (cotaAtivacoesUsada >= 50) return;
 
-    setCotaAtivacoesUsada((c) => c + 1);
-    setMensagemFeedback({
-      tipo: "sucesso",
-      texto: `Filiado (${emailNovoFiliado}) habilitado para votação Hype! Cota semanal: ${
-        cotaAtivacoesUsada + 1
-      }/50.`,
-    });
-    setEmailNovoFiliado("");
-    setCpfHashNovoFiliado("");
+    const liderId =
+      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
+    if (!liderId) {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Faça login como liderança em /auth/admin antes de habilitar filiados.",
+      });
+      return;
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/usuarios/ativar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          lider_id: liderId,
+          email: emailNovoFiliado.trim(),
+        }),
+      });
+      const data: { sucesso?: boolean; mensagem?: string } | null = await res
+        .json()
+        .catch(() => null);
+
+      if (!res.ok || !data?.sucesso) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Não foi possível habilitar o filiado informado.",
+        });
+        return;
+      }
+
+      setCotaAtivacoesUsada((c) => c + 1);
+      setMensagemFeedback({
+        tipo: "sucesso",
+        texto:
+          data.mensagem ||
+          `Filiado (${emailNovoFiliado}) habilitado para votação Hype! Cota semanal: ${
+            cotaAtivacoesUsada + 1
+          }/50.`,
+      });
+      setEmailNovoFiliado("");
+      setCpfHashNovoFiliado("");
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Erro de comunicação com a API ao ativar o filiado.",
+      });
+    }
   };
 
   const handleKillSwitchRevogacao = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!motivoKillSwitch.trim()) return;
+    setMensagemFeedback(null);
+    if (!motivoKillSwitch.trim() || !liderDissidenteAlvo.trim()) return;
 
-    setMensagemFeedback({
-      tipo: "alerta",
-      texto: `Kill-Switch executado: credenciais vinculadas ao diretório em dissidência revogadas no Redis e registradas em auditoria_logs.`,
-    });
-    setMotivoKillSwitch("");
+    const autorId =
+      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
+    if (!autorId) {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Faça login com alçada superior em /auth/admin para executar o Kill-Switch.",
+      });
+      return;
+    }
+
+    const alvo = liderDissidenteAlvo.trim();
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(alvo);
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/usuarios/revogar-lote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          autor_id: autorId,
+          lider_dissidente_id: isUuid ? alvo : null,
+          lider_dissidente_email: isUuid ? null : alvo,
+          motivo: motivoKillSwitch.trim(),
+        }),
+      });
+
+      const data: { sucesso?: boolean; mensagem?: string } | null = await res
+        .json()
+        .catch(() => null);
+
+      if (!res.ok || !data?.sucesso) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Falha ao executar revogação em lote.",
+        });
+        return;
+      }
+
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: data.mensagem || "Kill-Switch executado com sucesso no servidor.",
+      });
+      setLiderDissidenteAlvo("");
+      setMotivoKillSwitch("");
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Falha de comunicação com a API ao executar o Kill-Switch.",
+      });
+    }
   };
 
   return (
@@ -371,7 +532,11 @@ export default function CMSPage() {
           }`}
         >
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            {mensagemFeedback.tipo === "sucesso" ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertOctagon className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            )}
             <span className="font-medium">{mensagemFeedback.texto}</span>
           </div>
           <button
@@ -764,6 +929,7 @@ export default function CMSPage() {
                       imagem_destaque_url:
                         imagemDestaqueUrl ||
                         "https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&w=800&q=80",
+                      conteudo_sanitizado: conteudoSanitizadoPreview ?? "",
                       hype_score: 18.5,
                       publicado_em: new Date().toISOString(),
                     }}
@@ -785,10 +951,21 @@ export default function CMSPage() {
                     titulo={titulo || "Prévia Multimídia"}
                   />
 
-                  <div
-                    className="prose prose-sm prose-slate max-w-none prose-headings:font-bold prose-blockquote:border-destaque prose-blockquote:bg-blue-50/50 prose-blockquote:py-1 prose-blockquote:px-3 prose-blockquote:rounded-r-lg"
-                    dangerouslySetInnerHTML={{ __html: conteudoHtml }}
-                  />
+                  {conteudoSanitizadoPreview !== null ? (
+                    <div
+                      className="prose prose-sm prose-slate max-w-none prose-headings:font-bold prose-blockquote:border-destaque prose-blockquote:bg-blue-50/50 prose-blockquote:py-1 prose-blockquote:px-3 prose-blockquote:rounded-r-lg"
+                      dangerouslySetInnerHTML={{ __html: conteudoSanitizadoPreview }}
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
+                        Prévia segura em texto plano (conecte a API Rust/Ammonia para pré-visualização HTML sanitizada).
+                      </p>
+                      <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                        {conteudoHtml.replace(/<[^>]+>/g, " ").trim() || "Nenhum conteúdo redigido."}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -960,6 +1137,20 @@ export default function CMSPage() {
             </div>
 
             <form onSubmit={handleKillSwitchRevogacao} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-rose-900 uppercase tracking-wider mb-1">
+                  UUID ou E-mail da Liderança / Diretório em Dissidência *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={liderDissidenteAlvo}
+                  onChange={(e) => setLiderDissidenteAlvo(e.target.value)}
+                  placeholder="ex.: lider.dissidente@partido.org.br ou UUID"
+                  className="w-full px-3.5 py-2 rounded-lg border border-rose-300 bg-white text-sm text-slate-900"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-rose-900 uppercase tracking-wider mb-1">
                   Justificativa Formal para o Log Imutável de Auditoria *

@@ -9,6 +9,7 @@ export default function LoginAdminPage() {
   const [senha, setSenha] = useState("");
   const [jurisdicaoSelecionada, setJurisdicaoSelecionada] = useState<"MUNICIPAL" | "ESTADUAL" | "PRESIDENCIAL">("MUNICIPAL");
   const [etapa2FA, setEtapa2FA] = useState(false);
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [codigoTotp, setCodigoTotp] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -19,24 +20,38 @@ export default function LoginAdminPage() {
     setCarregando(true);
 
     try {
-      // Simulação / Chamada à API oficial em Rust
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
       const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, senha, jurisdicao: jurisdicaoSelecionada }),
-      }).catch(() => null);
+        credentials: "include",
+        body: JSON.stringify({ email, senha }),
+      });
 
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.requer_2fa) {
-          setEtapa2FA(true);
-        } else {
-          redirecionarPorCargo(jurisdicaoSelecionada);
-        }
-      } else {
-        // Modo demonstração local controlado
+      const data: {
+        sucesso?: boolean;
+        requer_2fa?: boolean;
+        usuario_id?: string;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.sucesso) {
+        setErro(
+          data?.mensagem ||
+            "Credenciais inválidas ou acesso administrativo não autorizado."
+        );
+        return;
+      }
+
+      if (data.usuario_id) {
+        setUsuarioId(data.usuario_id);
+        localStorage.setItem("jf_usuario_id", data.usuario_id);
+      }
+
+      if (data.requer_2fa) {
         setEtapa2FA(true);
+      } else {
+        redirecionarPorCargo(jurisdicaoSelecionada);
       }
     } catch {
       setErro("Falha de conexão com a infraestrutura de segurança editorial.");
@@ -45,19 +60,56 @@ export default function LoginAdminPage() {
     }
   };
 
-  const handleValidar2FA = (e: React.FormEvent) => {
+  const handleValidar2FA = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (codigoTotp.length < 6) {
+    setErro(null);
+    if (codigoTotp.trim().length !== 6) {
       setErro("Informe os 6 dígitos do autenticador.");
       return;
     }
-    redirecionarPorCargo(jurisdicaoSelecionada);
+    if (!usuarioId) {
+      setErro("Sessão de pré-autenticação expirada. Faça o login novamente.");
+      setEtapa2FA(false);
+      return;
+    }
+
+    setCarregando(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+      const res = await fetch(`${apiUrl}/api/v1/auth/2fa/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          usuario_id: usuarioId,
+          codigo_totp: codigoTotp.trim(),
+        }),
+      });
+
+      const data: {
+        sucesso?: boolean;
+        usuario_id?: string;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.sucesso) {
+        setErro(data?.mensagem || "Código TOTP inválido ou expirado.");
+        return;
+      }
+
+      localStorage.setItem("jf_usuario_id", data.usuario_id || usuarioId);
+      redirecionarPorCargo(jurisdicaoSelecionada);
+    } catch {
+      setErro("Não foi possível validar o segundo fator junto ao servidor.");
+    } finally {
+      setCarregando(false);
+    }
   };
 
   const handlePasskeyAuth = () => {
-    // Simulação do desafio biométrico FIDO2/WebAuthn
-    alert(`Autenticando via Passkey / Biometria com credencial de ${jurisdicaoSelecionada}...`);
-    redirecionarPorCargo(jurisdicaoSelecionada);
+    setErro(
+      "Autenticação via Passkey/WebAuthn FIDO2 requer pareamento de chave no servidor. Utilize o código TOTP de 6 dígitos."
+    );
   };
 
   const redirecionarPorCargo = (jurisdicao: "MUNICIPAL" | "ESTADUAL" | "PRESIDENCIAL") => {

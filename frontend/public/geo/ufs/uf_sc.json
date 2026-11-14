@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "4200001",
+        "nome": "Capital Santa Catarina",
+        "uf": "SC"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -50.675,
+              -27.075
+            ],
+            [
+              -50.325,
+              -27.075
+            ],
+            [
+              -50.325,
+              -27.325
+            ],
+            [
+              -50.675,
+              -27.325
+            ],
+            [
+              -50.675,
+              -27.075
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

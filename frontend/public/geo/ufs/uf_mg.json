@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "3106200",
+        "nome": "Belo Horizonte",
+        "uf": "MG"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -44.115,
+              -19.795
+            ],
+            [
+              -43.765,
+              -19.795
+            ],
+            [
+              -43.765,
+              -20.045
+            ],
+            [
+              -44.115,
+              -20.045
+            ],
+            [
+              -44.115,
+              -19.795
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -6,10 +6,11 @@ mod routes;
 mod services;
 mod worker;
 
+use axum::http::{header, HeaderValue, Method};
 use config::AppConfig;
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -47,11 +48,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Iniciar Worker em Segundo Plano do Hype Score (Ciclo de 5 min)
     worker::hype_worker::HypeWorker::spawn(pool.clone());
 
-    // 5. Configurar Middlewares Globais (CORS, Trace, Limite Estrito de Buffer)
+    // 5. Configurar Middlewares Globais (CORS com Credenciais, Trace, Limite Estrito de Buffer)
+    let allowed_origins: Vec<HeaderValue> = app_config
+        .cors_allowed_origins
+        .iter()
+        .filter_map(|o| HeaderValue::from_str(o).ok())
+        .collect();
+
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(allowed_origins)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
+        .allow_credentials(true);
 
     let app = routes::build_api_router(pool)
         .layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024))

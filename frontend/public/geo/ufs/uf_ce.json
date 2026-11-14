@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2300001",
+        "nome": "Capital Ceará",
+        "uf": "CE"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -39.675,
+              -5.075
+            ],
+            [
+              -39.325,
+              -5.075
+            ],
+            [
+              -39.325,
+              -5.325
+            ],
+            [
+              -39.675,
+              -5.325
+            ],
+            [
+              -39.675,
+              -5.075
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

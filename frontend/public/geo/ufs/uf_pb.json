@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2500001",
+        "nome": "Capital Paraíba",
+        "uf": "PB"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -36.875,
+              -6.975
+            ],
+            [
+              -36.525,
+              -6.975
+            ],
+            [
+              -36.525,
+              -7.225
+            ],
+            [
+              -36.875,
+              -7.225
+            ],
+            [
+              -36.875,
+              -6.975
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

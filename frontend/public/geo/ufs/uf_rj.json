@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "3304557",
+        "nome": "Rio de Janeiro",
+        "uf": "RJ"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -43.345,
+              -22.785
+            ],
+            [
+              -42.995,
+              -22.785
+            ],
+            [
+              -42.995,
+              -23.035
+            ],
+            [
+              -43.345,
+              -23.035
+            ],
+            [
+              -43.345,
+              -22.785
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

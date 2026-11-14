@@ -1,17 +1,18 @@
 use crate::error::AppError;
-use crate::models::{StatusNoticia, TipoEscopo, TipoFormatoMateria};
+use crate::middleware::rbac::AuthContext;
+use crate::models::{ModoEleitoralConfig, StatusNoticia, TipoEscopo, TipoFormatoMateria};
 use crate::services::sanitizer::sanitizar_html_editorial;
 use axum::{
     extract::{Path, State},
     Json,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 pub struct CriarNoticiaRequest {
-    pub autor_id: Uuid,
     pub titulo: String,
     pub subtitulo: Option<String>,
     pub escopo: TipoEscopo,
@@ -47,7 +48,6 @@ pub struct PreviewSanitizadoResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct SolicitarEscalonamentoRequest {
-    pub solicitante_id: Uuid,
     pub escopo_origem: TipoEscopo,
     pub escopo_destino: TipoEscopo,
     pub justificativa: String,
@@ -60,9 +60,129 @@ pub struct EscalonamentoResponse {
     pub mensagem: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct NoticiaDetalheItem {
+    pub id: String,
+    pub titulo: String,
+    pub slug: String,
+    pub subtitulo: Option<String>,
+    pub escopo: TipoEscopo,
+    pub ibge_codigo: Option<String>,
+    pub formato: TipoFormatoMateria,
+    pub video_url: Option<String>,
+    pub audio_url: Option<String>,
+    pub pdf_edicao_url: Option<String>,
+    pub conteudo_sanitizado: String,
+    pub imagem_destaque_url: Option<String>,
+    pub autor_nome: Option<String>,
+    pub publicado_em: Option<String>,
+    pub votos_positivos: i32,
+    pub votos_negativos: i32,
+    pub hype_score: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NoticiaDetalheResponse {
+    pub modo_eleitoral_ativo: bool,
+    pub noticia: NoticiaDetalheItem,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct NoticiaDetalheRow {
+    id: Uuid,
+    titulo: String,
+    slug: String,
+    subtitulo: Option<String>,
+    escopo: TipoEscopo,
+    ibge_codigo: Option<String>,
+    formato: TipoFormatoMateria,
+    video_url: Option<String>,
+    audio_url: Option<String>,
+    pdf_edicao_url: Option<String>,
+    conteudo_sanitizado: String,
+    imagem_destaque_url: Option<String>,
+    autor_nome: Option<String>,
+    votos_positivos: i32,
+    votos_negativos: i32,
+    hype_score: f64,
+    publicado_em: Option<DateTime<Utc>>,
+}
+
+pub async fn obter_noticia_por_slug(
+    State(pool): State<PgPool>,
+    Path(slug): Path<String>,
+) -> Result<Json<NoticiaDetalheResponse>, AppError> {
+    let config_val: Option<serde_json::Value> =
+        sqlx::query_scalar("SELECT valor FROM configuracoes WHERE chave = 'modo_eleitoral'")
+            .fetch_optional(&pool)
+            .await?;
+
+    let modo_eleitoral_ativo = config_val
+        .and_then(|v| serde_json::from_value::<ModoEleitoralConfig>(v).ok())
+        .map(|c| c.ativo)
+        .unwrap_or(false);
+
+    let row = sqlx::query_as::<_, NoticiaDetalheRow>(
+        r#"
+        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.escopo,
+               n.ibge_codigo, n.formato, n.video_url, n.audio_url,
+               n.pdf_edicao_url, n.conteudo_sanitizado, n.imagem_destaque_url,
+               u.nome AS autor_nome,
+               n.votos_positivos, n.votos_negativos,
+               n.hype_score::float8 AS hype_score,
+               n.publicado_em
+        FROM noticias n
+        LEFT JOIN usuarios u ON n.autor_id = u.id
+        WHERE n.slug = $1 AND n.status = 'PUBLICADO'
+        LIMIT 1
+        "#,
+    )
+    .bind(slug.trim())
+    .fetch_optional(&pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Matéria não encontrada.".to_string()))?;
+
+    Ok(Json(NoticiaDetalheResponse {
+        modo_eleitoral_ativo,
+        noticia: NoticiaDetalheItem {
+            id: row.id.to_string(),
+            titulo: row.titulo,
+            slug: row.slug,
+            subtitulo: row.subtitulo,
+            escopo: row.escopo,
+            ibge_codigo: row.ibge_codigo,
+            formato: row.formato,
+            video_url: row.video_url,
+            audio_url: row.audio_url,
+            pdf_edicao_url: row.pdf_edicao_url,
+            conteudo_sanitizado: row.conteudo_sanitizado,
+            imagem_destaque_url: row.imagem_destaque_url,
+            autor_nome: row.autor_nome,
+            publicado_em: row.publicado_em.map(|d| d.to_rfc3339()),
+            votos_positivos: row.votos_positivos,
+            votos_negativos: row.votos_negativos,
+            hype_score: if modo_eleitoral_ativo {
+                None
+            } else {
+                Some(row.hype_score)
+            },
+        },
+    }))
+}
+
 pub async fn preview_sanitizado(
+    auth: AuthContext,
     Json(payload): Json<PreviewSanitizadoRequest>,
 ) -> Result<Json<PreviewSanitizadoResponse>, AppError> {
+    if !auth.cargo.pode_publicar_municipal
+        && !auth.cargo.pode_publicar_estadual
+        && !auth.cargo.pode_publicar_nacional
+    {
+        return Err(AppError::Forbidden(
+            "Sem privilégio editorial para pré-visualização no CMS.".to_string(),
+        ));
+    }
+
     let limpo = sanitizar_html_editorial(&payload.conteudo_html);
     Ok(Json(PreviewSanitizadoResponse {
         conteudo_sanitizado: limpo,
@@ -70,6 +190,7 @@ pub async fn preview_sanitizado(
 }
 
 pub async fn criar_noticia(
+    auth: AuthContext,
     State(pool): State<PgPool>,
     Json(payload): Json<CriarNoticiaRequest>,
 ) -> Result<Json<CriarNoticiaResponse>, AppError> {
@@ -79,7 +200,7 @@ pub async fn criar_noticia(
         ));
     }
 
-    // 1. Validar Consistência Territorial do Payload (ADR D4)
+    // 1. Validar Consistência Territorial do Payload e RBAC do Redator (ADR D4)
     match payload.escopo {
         TipoEscopo::Nacional => {
             if payload.ibge_codigo.is_some() {
@@ -96,6 +217,8 @@ pub async fn criar_noticia(
             }
         }
     }
+
+    auth.pode_publicar_em(&payload.escopo, payload.ibge_codigo.as_deref())?;
 
     // 2. Sanitização estrita contra XSS via Crate Ammonia (ADR D8)
     let conteudo_sanitizado = sanitizar_html_editorial(&payload.conteudo_html);
@@ -154,7 +277,7 @@ pub async fn criar_noticia(
     .bind(payload.titulo.trim())
     .bind(&slug)
     .bind(&payload.subtitulo)
-    .bind(payload.autor_id)
+    .bind(auth.usuario_id)
     .bind(&payload.escopo)
     .bind(&payload.ibge_codigo)
     .bind(&formato)
@@ -184,10 +307,17 @@ pub async fn criar_noticia(
 }
 
 pub async fn solicitar_escalonamento(
+    auth: AuthContext,
     State(pool): State<PgPool>,
     Path(noticia_id): Path<Uuid>,
     Json(payload): Json<SolicitarEscalonamentoRequest>,
 ) -> Result<Json<EscalonamentoResponse>, AppError> {
+    if !auth.cargo.pode_solicitar_escalonamento {
+        return Err(AppError::Forbidden(
+            "Cargo atual não possui permissão para solicitar escalonamento editorial.".to_string(),
+        ));
+    }
+
     let valido = matches!(
         (&payload.escopo_origem, &payload.escopo_destino),
         (TipoEscopo::Municipal, TipoEscopo::Estadual)
@@ -201,6 +331,23 @@ pub async fn solicitar_escalonamento(
         ));
     }
 
+    let noticia_row = sqlx::query("SELECT escopo, ibge_codigo FROM noticias WHERE id = $1")
+        .bind(noticia_id)
+        .fetch_optional(&pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Matéria não encontrada.".to_string()))?;
+
+    let noticia_escopo: TipoEscopo = noticia_row.try_get("escopo")?;
+    let noticia_ibge: Option<String> = noticia_row.try_get("ibge_codigo")?;
+
+    if noticia_escopo != payload.escopo_origem {
+        return Err(AppError::BadRequest(
+            "O escopo de origem informado não corresponde ao escopo real da matéria.".to_string(),
+        ));
+    }
+
+    auth.validar_jurisdicao_alvo(&noticia_escopo, noticia_ibge.as_deref())?;
+
     let solicitacao_id: Uuid = sqlx::query_scalar(
         r#"
         INSERT INTO solicitacoes_escalonamento (
@@ -211,7 +358,7 @@ pub async fn solicitar_escalonamento(
         "#,
     )
     .bind(noticia_id)
-    .bind(payload.solicitante_id)
+    .bind(auth.usuario_id)
     .bind(&payload.escopo_origem)
     .bind(&payload.escopo_destino)
     .bind(&payload.justificativa)

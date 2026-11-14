@@ -110,16 +110,16 @@ INSERT INTO territorios (codigo_ibge, nome, tipo, uf, ibge_uf_codigo, populacao_
 ON CONFLICT (codigo_ibge) DO NOTHING;
 
 -- 4. CARGA DE USUÁRIOS INICIAIS DE CUSTÓDIA (Marco 0.4 de Segurança)
--- As senhas são geradas via Argon2id para os custodiantes homologados
+-- Hashes SHA-256 iterados (10.000 rodadas + salt) para desenvolvimento; rotacionar obrigatoriamente em produção.
 INSERT INTO usuarios (
     id, nome, email, senha_hash, cargo_id, escopo, ibge_codigo, filiado_verificado, status
 ) VALUES
 ('00000000-0000-0000-0000-000000000001'::uuid, 'Custodiante SuperAdmin (TI)', 'superadmin@jornalfederado.org.br', 
- '$argon2id$v=19$m=65536,t=3,p=4$JornalFedSeedSalt01$7tYyvQn4F5gW2m1Hk8L0XvR6zO4q9P3w8Y7x6c5v4b3', 
+ '$sha256$i=10000$4a6f726e616c466564536565643031$29697afdd480efff2146336ac0b3cc59e5e5eb3302a30a2b518275711fc6f3ed', 
  1, 'NACIONAL', NULL, TRUE, 'ATIVO'),
 
 ('00000000-0000-0000-0000-000000000002'::uuid, 'Presidência Executiva Nacional', 'lider.nacional@jornalfederado.org.br',
- '$argon2id$v=19$m=65536,t=3,p=4$JornalFedSeedSalt02$9uZaXk8N5vQ2m1Hk8L0XvR6zO4q9P3w8Y7x6c5v4b3', 
+ '$sha256$i=10000$4a6f726e616c466564536565643032$e58a0fea3fed8e21202ad474c702159f47450c039d0faef12b7fdb793aaacae4', 
  2, 'NACIONAL', NULL, TRUE, 'ATIVO')
 ON CONFLICT (email) DO NOTHING;
 

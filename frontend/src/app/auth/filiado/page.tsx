@@ -18,26 +18,52 @@ export default function LoginFiliadoPage() {
     setMensagemSucesso(null);
 
     try {
-      // Simulação / Chamada à API de verificação do filiado
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
-      const res = await fetch(`${apiUrl}/api/v1/auth/filiado/verificar`, {
+      const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, titulo_ou_cpf: identificador }),
-      }).catch(() => null);
+        credentials: "include",
+        body: JSON.stringify({ email, senha: identificador }),
+      });
 
-      if (res && res.ok) {
-        setMensagemSucesso("Credencial de votante ativada com sucesso! Você já pode votar nos rankings.");
-      } else {
-        // Modo demonstração local / fallback
-        setMensagemSucesso("Filiado verificado na base partidária! Direito ao voto duplo (▲ Recomendar / ▼ Divergir) habilitado.");
+      const data: {
+        sucesso?: boolean;
+        requer_2fa?: boolean;
+        usuario_id?: string;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.sucesso) {
+        setErro(
+          data?.mensagem ||
+            "Credenciais inválidas ou filiado ainda não ativado pelo diretório."
+        );
+        return;
       }
+
+      if (data.usuario_id) {
+        localStorage.setItem("jf_usuario_id", data.usuario_id);
+      }
+
+      if (data.requer_2fa) {
+        setErro(
+          "Esta conta exige confirmação de 2º fator (2FA). Utilize o portal administrativo ou a página de login completo."
+        );
+        return;
+      }
+
+      setMensagemSucesso(
+        data.mensagem ||
+          "Credencial de votante ativada com sucesso! Redirecionando para o jornal..."
+      );
 
       setTimeout(() => {
         window.location.href = "/";
-      }, 1800);
+      }, 1500);
     } catch {
-      setErro("Não foi possível validar as credenciais junto ao cartório partidário.");
+      setErro(
+        "Não foi possível conectar ao servidor de autenticação. Verifique sua conexão e tente novamente."
+      );
     } finally {
       setCarregando(false);
     }
@@ -46,7 +72,7 @@ export default function LoginFiliadoPage() {
   return (
     <div className="min-h-screen py-12 px-4 flex items-center justify-center font-body bg-[#f7f2e4] text-[#211d17]">
       <div className="max-w-md w-full border-2 border-[#2a251d] bg-[#fdfaf2] p-6 sm:p-8 shadow-2xl relative">
-        <!-- Detalhe de Moldura Cartorial -->
+        {/* Detalhe de Moldura Cartorial */}
         <div className="text-center space-y-2 border-b border-[#c0b59d] pb-5">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 border border-[#6fa878] bg-[#d7ebd9] text-[#153d1e] font-mono text-xs font-bold uppercase tracking-wider">
             <Vote className="w-3.5 h-3.5" />

@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "1400001",
+        "nome": "Capital Roraima",
+        "uf": "RR"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -61.575,
+              2.125
+            ],
+            [
+              -61.225,
+              2.125
+            ],
+            [
+              -61.225,
+              1.875
+            ],
+            [
+              -61.575,
+              1.875
+            ],
+            [
+              -61.575,
+              2.125
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

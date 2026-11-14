@@ -124,8 +124,7 @@ pub async fn get_feed(
         .bind(limit)
         .bind(offset)
         .fetch_all(&pool)
-        .await
-        .unwrap_or_default();
+        .await?;
 
     let feed_items: Vec<NoticiaFeedItem> = noticias_db
         .into_iter()

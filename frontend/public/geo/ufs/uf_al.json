@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2700001",
+        "nome": "Capital Alagoas",
+        "uf": "AL"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -36.775,
+              -9.475
+            ],
+            [
+              -36.425,
+              -9.475
+            ],
+            [
+              -36.425,
+              -9.725
+            ],
+            [
+              -36.775,
+              -9.725
+            ],
+            [
+              -36.775,
+              -9.475
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

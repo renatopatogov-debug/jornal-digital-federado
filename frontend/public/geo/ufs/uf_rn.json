@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2400001",
+        "nome": "Capital Rio Grande do Norte",
+        "uf": "RN"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -36.775,
+              -5.675
+            ],
+            [
+              -36.425,
+              -5.675
+            ],
+            [
+              -36.425,
+              -5.925
+            ],
+            [
+              -36.775,
+              -5.925
+            ],
+            [
+              -36.775,
+              -5.675
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

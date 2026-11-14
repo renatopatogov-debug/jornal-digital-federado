@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2900001",
+        "nome": "Capital Bahia",
+        "uf": "BA"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -41.875,
+              -12.275
+            ],
+            [
+              -41.525,
+              -12.275
+            ],
+            [
+              -41.525,
+              -12.525
+            ],
+            [
+              -41.875,
+              -12.525
+            ],
+            [
+              -41.875,
+              -12.275
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

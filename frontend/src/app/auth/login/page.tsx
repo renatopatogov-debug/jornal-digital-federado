@@ -7,48 +7,102 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [etapa2FA, setEtapa2FA] = useState(false);
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [codigoTotp, setCodigoTotp] = useState("");
-  const [metodo, setMetodo] = useState<"PASSKEY" | "GOOGLE_AUTH">("PASSKEY");
+  const [metodo, setMetodo] = useState<"PASSKEY" | "GOOGLE_AUTH">("GOOGLE_AUTH");
+  const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
+    setCarregando(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8080/api/v1/auth/login", {
+      const res = await fetch(`${apiUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, senha }),
       });
 
-      const data = await res.json();
-      if (res.ok) {
+      const data: {
+        sucesso?: boolean;
+        requer_2fa?: boolean;
+        usuario_id?: string;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+
+      if (res.ok && data?.sucesso) {
+        if (data.usuario_id) {
+          setUsuarioId(data.usuario_id);
+          localStorage.setItem("jf_usuario_id", data.usuario_id);
+        }
         if (data.requer_2fa) {
           setEtapa2FA(true);
         } else {
           window.location.href = "/cms";
         }
       } else {
-        setErro(data.mensagem || "Credenciais inválidas.");
+        setErro(data?.mensagem || "Credenciais inválidas.");
       }
-    } catch (err) {
+    } catch {
       setErro("Falha de conexão com a API de segurança.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const handleValidar2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro(null);
+    if (!usuarioId) {
+      setErro("Sessão de pré-autenticação inválida. Realize o login novamente.");
+      setEtapa2FA(false);
+      return;
+    }
+
+    setCarregando(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/auth/2fa/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          usuario_id: usuarioId,
+          codigo_totp: codigoTotp.trim(),
+        }),
+      });
+      const data: {
+        sucesso?: boolean;
+        usuario_id?: string;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.sucesso) {
+        setErro(data?.mensagem || "Código TOTP inválido.");
+        return;
+      }
+
+      localStorage.setItem("jf_usuario_id", data.usuario_id || usuarioId);
+      window.location.href = "/cms";
+    } catch {
+      setErro("Erro de comunicação ao validar o código 2FA.");
+    } finally {
+      setCarregando(false);
     }
   };
 
   const handlePasskeyAuth = async () => {
-    try {
-      // Inicia fluxo WebAuthn biométrico com o navegador
-      if (!window.PublicKeyCredential) {
-        setErro("Seu navegador ou dispositivo não possui suporte a Passkeys/Biometria.");
-        return;
-      }
-      alert("Simulação de desafio WebAuthn FIDO2: Solicitando leitura de FaceID / TouchID...");
-      window.location.href = "/cms";
-    } catch (err) {
-      setErro("Falha na validação biométrica.");
+    if (!window.PublicKeyCredential) {
+      setErro("Seu navegador ou dispositivo não possui suporte a Passkeys/Biometria.");
+      return;
     }
+    setErro(
+      "O fluxo WebAuthn FIDO2 no servidor ainda não está pareado. Selecione 'Google Authenticator' para concluir o 2FA."
+    );
   };
 
   return (
@@ -152,11 +206,7 @@ export default function LoginPage() {
               </div>
             ) : (
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  alert(`Validando código TOTP: ${codigoTotp}`);
-                  window.location.href = "/cms";
-                }}
+                onSubmit={handleValidar2FA}
                 className="space-y-4"
               >
                 <div>
@@ -176,9 +226,10 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  className="w-full bg-destaque hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm shadow-sm transition-colors"
+                  disabled={carregando}
+                  className="w-full bg-destaque hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm shadow-sm transition-colors disabled:opacity-50"
                 >
-                  Validar Código Google Authenticator
+                  {carregando ? "Validando..." : "Validar Código Google Authenticator"}
                 </button>
               </form>
             )}

@@ -11,9 +11,17 @@ pub struct AppConfig {
     pub modo_eleitoral_default: bool,
     pub max_ativacao_semanal_lider_municipal: i32,
     pub rate_limit_votos_por_minuto: i32,
+    pub cors_allowed_origins: Vec<String>,
+    pub cookie_secure: bool,
 }
 
 impl AppConfig {
+    pub fn cookie_secure_from_env() -> bool {
+        env::var("COOKIE_SECURE")
+            .map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "false" | "0" | "no"))
+            .unwrap_or(true)
+    }
+
     pub fn from_env() -> Result<Self, String> {
         dotenvy::dotenv().ok();
 
@@ -49,6 +57,15 @@ impl AppConfig {
             .parse::<i32>()
             .unwrap_or(10);
 
+        let cors_allowed_origins = env::var("CORS_ALLOWED_ORIGINS")
+            .unwrap_or_else(|_| "http://localhost:3000,http://127.0.0.1:3000".to_string())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        let cookie_secure = Self::cookie_secure_from_env();
+
         Ok(Self {
             host,
             port,
@@ -58,6 +75,8 @@ impl AppConfig {
             modo_eleitoral_default,
             max_ativacao_semanal_lider_municipal,
             rate_limit_votos_por_minuto,
+            cors_allowed_origins,
+            cookie_secure,
         })
     }
 }

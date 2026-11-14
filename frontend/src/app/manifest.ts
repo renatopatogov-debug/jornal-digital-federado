@@ -7,20 +7,20 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Plataforma editorial federada aberta com ranking auditável e notícias hiperlocais de todo o Brasil.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0f172a",
-    theme_color: "#2563eb",
+    background_color: "#f7f2e4",
+    theme_color: "#8b261d",
     icons: [
       {
         src: "/icon-192x192.png",
         sizes: "192x192",
         type: "image/png",
-        purpose: "any maskable",
+        purpose: "any",
       },
       {
         src: "/icon-512x512.png",
         sizes: "512x512",
         type: "image/png",
-        purpose: "any maskable",
+        purpose: "maskable",
       },
     ],
   };

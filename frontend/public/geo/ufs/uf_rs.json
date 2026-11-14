@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "4300001",
+        "nome": "Capital Rio Grande do Sul",
+        "uf": "RS"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -53.475,
+              -29.675
+            ],
+            [
+              -53.125,
+              -29.675
+            ],
+            [
+              -53.125,
+              -29.925
+            ],
+            [
+              -53.475,
+              -29.925
+            ],
+            [
+              -53.475,
+              -29.675
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

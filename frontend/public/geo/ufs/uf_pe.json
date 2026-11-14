@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "2600001",
+        "nome": "Capital Pernambuco",
+        "uf": "PE"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -38.075,
+              -8.175
+            ],
+            [
+              -37.725,
+              -8.175
+            ],
+            [
+              -37.725,
+              -8.425
+            ],
+            [
+              -38.075,
+              -8.425
+            ],
+            [
+              -38.075,
+              -8.175
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

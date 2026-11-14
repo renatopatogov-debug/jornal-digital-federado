@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "5100001",
+        "nome": "Capital Mato Grosso",
+        "uf": "MT"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -56.075,
+              -12.675
+            ],
+            [
+              -55.725,
+              -12.675
+            ],
+            [
+              -55.725,
+              -12.925
+            ],
+            [
+              -56.075,
+              -12.925
+            ],
+            [
+              -56.075,
+              -12.675
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

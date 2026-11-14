@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "3200001",
+        "nome": "Capital Espírito Santo",
+        "uf": "ES"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -40.475,
+              -19.475
+            ],
+            [
+              -40.125,
+              -19.475
+            ],
+            [
+              -40.125,
+              -19.725
+            ],
+            [
+              -40.475,
+              -19.725
+            ],
+            [
+              -40.475,
+              -19.475
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

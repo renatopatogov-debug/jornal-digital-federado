@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ibge_codigo": "5300108",
+        "nome": "Brasília",
+        "uf": "DF"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -48.055,
+              -15.665
+            ],
+            [
+              -47.705,
+              -15.665
+            ],
+            [
+              -47.705,
+              -15.915
+            ],
+            [
+              -48.055,
+              -15.915
+            ],
+            [
+              -48.055,
+              -15.665
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
