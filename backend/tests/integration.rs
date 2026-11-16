@@ -70,10 +70,7 @@ async fn spawn_server(pool: PgPool, config: &AppConfig) -> SocketAddr {
 fn decodificar_chunked(raw: &str) -> String {
     let mut out = String::new();
     let mut rest = raw;
-    loop {
-        let Some((len_line, after_len)) = rest.split_once("\r\n") else {
-            break;
-        };
+    while let Some((len_line, after_len)) = rest.split_once("\r\n") {
         let len_hex = len_line.split(';').next().unwrap_or("").trim();
         let Ok(size) = usize::from_str_radix(len_hex, 16) else {
             break;
