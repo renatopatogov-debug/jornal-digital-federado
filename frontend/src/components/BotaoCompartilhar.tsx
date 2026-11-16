@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Share2, Check, MessageCircle, Copy } from "lucide-react";
+import { Check, MessageCircle, Copy } from "lucide-react";
 
 interface BotaoCompartilharProps {
   titulo: string;

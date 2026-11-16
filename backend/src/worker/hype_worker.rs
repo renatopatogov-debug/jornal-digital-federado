@@ -1,5 +1,6 @@
 use crate::models::{ModoEleitoralConfig, TipoEscopo};
 use crate::services::hype::HypeEngine;
+use crate::services::session::SessionManager;
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use std::time::Duration;
@@ -27,6 +28,16 @@ impl HypeWorker {
 
     async fn executar_ciclo(pool: &PgPool) -> Result<(), sqlx::Error> {
         let agora = Utc::now();
+
+        let expiradas = SessionManager::limpar_sessoes_expiradas(pool)
+            .await
+            .unwrap_or(0);
+        if expiradas > 0 {
+            tracing::info!(
+                "[HypeWorker] Higiene de sessões concluída: {} sessões expiradas removidas.",
+                expiradas
+            );
+        }
 
         // 1. Inspecionar status do Modo Eleitoral (ADR D6)
         let config_val: Option<serde_json::Value> = sqlx::query_scalar(

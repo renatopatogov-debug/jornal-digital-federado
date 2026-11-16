@@ -1,9 +1,10 @@
 use crate::config::AppConfig;
 use crate::error::AppError;
-use crate::middleware::rbac::{extrair_ip_cliente, extrair_token_cookie};
+use crate::middleware::rbac::{extrair_ip_cliente, extrair_token_cookie, AuthContext};
 use crate::services::crypto::CryptoService;
-use crate::services::session::SessionManager;
+use crate::services::session::{AuditoriaEvento, SessionManager};
 use axum::{
+    body::Bytes,
     extract::State,
     http::{header, HeaderMap, HeaderValue},
     response::IntoResponse,
@@ -12,6 +13,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{PgPool, Row};
+use std::net::IpAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -27,6 +29,11 @@ pub struct Verify2faRequest {
     pub codigo_totp: String,
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct RevogarSessoesRequest {
+    pub manter_sessao_atual: Option<bool>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
     pub sucesso: bool,
@@ -36,18 +43,41 @@ pub struct LoginResponse {
 }
 
 fn construir_cookie_sessao(token: &str, max_age_secs: i64) -> Option<HeaderValue> {
-    let cookie = if AppConfig::cookie_secure_from_env() {
+    let same_site = AppConfig::cookie_same_site_from_env();
+    let secure = AppConfig::cookie_secure_from_env() || same_site == "None";
+    let cookie = if secure {
         format!(
-            "__Host-jornal_session={}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age={}",
-            token, max_age_secs
+            "__Host-jornal_session={}; Path=/; Secure; HttpOnly; SameSite={}; Max-Age={}",
+            token, same_site, max_age_secs
         )
     } else {
         format!(
-            "jornal_session={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
-            token, max_age_secs
+            "jornal_session={}; Path=/; HttpOnly; SameSite={}; Max-Age={}",
+            token, same_site, max_age_secs
         )
     };
     HeaderValue::from_str(&cookie).ok()
+}
+
+fn extrair_user_agent(headers: &HeaderMap) -> &str {
+    headers
+        .get(header::USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("JornalClient/2.1")
+}
+
+async fn emitir_sessao_e_headers(
+    pool: &PgPool,
+    usuario_id: Uuid,
+    ip: IpAddr,
+    user_agent: &str,
+) -> Result<HeaderMap, AppError> {
+    let token = SessionManager::criar_sessao(pool, usuario_id, ip, user_agent).await?;
+    let mut response_headers = HeaderMap::new();
+    if let Some(cookie_val) = construir_cookie_sessao(&token, 604_800) {
+        response_headers.insert(header::SET_COOKIE, cookie_val);
+    }
+    Ok(response_headers)
 }
 
 pub async fn login(
@@ -61,6 +91,9 @@ pub async fn login(
         ));
     }
 
+    let ip = extrair_ip_cliente(&headers);
+    let user_agent = extrair_user_agent(&headers);
+
     // Busca usuário e valida senha_hash em tempo constante
     let row = sqlx::query(
         r#"
@@ -71,8 +104,24 @@ pub async fn login(
     )
     .bind(payload.email.trim())
     .fetch_optional(&pool)
-    .await?
-    .ok_or_else(|| AppError::Unauthorized("Credenciais inválidas.".to_string()))?;
+    .await?;
+
+    let Some(row) = row else {
+        SessionManager::registrar_auditoria(
+            &pool,
+            AuditoriaEvento {
+                ator_id: None,
+                acao: "LOGIN_FALHA",
+                entidade: "sessoes",
+                entidade_id: None,
+                dados_novos: json!({ "motivo": "usuario_nao_encontrado" }),
+                ip_origem: ip,
+                user_agent: Some(user_agent),
+            },
+        )
+        .await;
+        return Err(AppError::Unauthorized("Credenciais inválidas.".to_string()));
+    };
 
     let usuario_id: Uuid = row.try_get("id")?;
     let senha_hash: String = row.try_get("senha_hash")?;
@@ -80,6 +129,19 @@ pub async fn login(
     let status: String = row.try_get("status")?;
 
     if !CryptoService::verificar_senha_hash(&payload.senha, &senha_hash) {
+        SessionManager::registrar_auditoria(
+            &pool,
+            AuditoriaEvento {
+                ator_id: Some(usuario_id),
+                acao: "LOGIN_FALHA",
+                entidade: "sessoes",
+                entidade_id: None,
+                dados_novos: json!({ "motivo": "senha_invalida" }),
+                ip_origem: ip,
+                user_agent: Some(user_agent),
+            },
+        )
+        .await;
         return Err(AppError::Unauthorized("Credenciais inválidas.".to_string()));
     }
 
@@ -91,6 +153,20 @@ pub async fn login(
 
     // Se 2FA estiver ativo, requer etapa subsequente de desafio TOTP ou código de recuperação
     if totp_habilitado {
+        SessionManager::registrar_auditoria(
+            &pool,
+            AuditoriaEvento {
+                ator_id: Some(usuario_id),
+                acao: "LOGIN_DESAFIO_2FA",
+                entidade: "sessoes",
+                entidade_id: None,
+                dados_novos: json!({ "requer_2fa": true }),
+                ip_origem: ip,
+                user_agent: Some(user_agent),
+            },
+        )
+        .await;
+
         return Ok((
             HeaderMap::new(),
             Json(LoginResponse {
@@ -104,18 +180,21 @@ pub async fn login(
         ));
     }
 
-    // Emissão de sessão HTTP-Only (ADR D3)
-    let user_agent = headers
-        .get(header::USER_AGENT)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("JornalClient/2.1");
-    let ip = extrair_ip_cliente(&headers);
-    let token = SessionManager::criar_sessao(&pool, usuario_id, ip, user_agent).await?;
-
-    let mut response_headers = HeaderMap::new();
-    if let Some(cookie_val) = construir_cookie_sessao(&token, 604_800) {
-        response_headers.insert(header::SET_COOKIE, cookie_val);
-    }
+    let response_headers = emitir_sessao_e_headers(&pool, usuario_id, ip, user_agent).await?;
+    let uid_str = usuario_id.to_string();
+    SessionManager::registrar_auditoria(
+        &pool,
+        AuditoriaEvento {
+            ator_id: Some(usuario_id),
+            acao: "LOGIN_SUCESSO",
+            entidade: "sessoes",
+            entidade_id: Some(&uid_str),
+            dados_novos: json!({ "requer_2fa": false }),
+            ip_origem: ip,
+            user_agent: Some(user_agent),
+        },
+    )
+    .await;
 
     Ok((
         response_headers,
@@ -139,6 +218,9 @@ pub async fn verify_2fa(
             "Informe o código TOTP de 6 dígitos ou código de recuperação.".to_string(),
         ));
     }
+
+    let ip = extrair_ip_cliente(&headers);
+    let user_agent = extrair_user_agent(&headers);
 
     let row = sqlx::query(
         r#"
@@ -172,12 +254,14 @@ pub async fn verify_2fa(
     }
 
     let mut verificado = false;
+    let mut metodo_usado = "totp";
 
     if let Some(envelope) = totp_secret_cifrado {
         if codigo.len() == 6 && codigo.chars().all(|c| c.is_ascii_digit()) {
             let crypto = CryptoService::from_env();
-            let secret = crypto
-                .decifrar_envelope(&envelope)
+            let crypto_anterior = CryptoService::previous_from_env();
+            let (secret, usou_chave_antiga) = crypto
+                .decifrar_com_fallback(&envelope, crypto_anterior.as_ref())
                 .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?;
             let agora = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -185,6 +269,19 @@ pub async fn verify_2fa(
                 .as_secs();
             if CryptoService::verificar_totp_sha256(&secret, codigo, agora) {
                 verificado = true;
+                // Re-cifra preguiçosamente caso ainda estivesse sob chave mestra anterior
+                if let Some(novo_envelope) = usou_chave_antiga
+                    .then(|| crypto.cifrar_envelope_aleatorio(&secret))
+                    .and_then(Result::ok)
+                {
+                    let _ = sqlx::query(
+                        "UPDATE usuarios SET totp_secret_cifrado = $1 WHERE id = $2",
+                    )
+                    .bind(novo_envelope)
+                    .bind(payload.usuario_id)
+                    .execute(&pool)
+                    .await;
+                }
             }
         }
     }
@@ -204,26 +301,44 @@ pub async fn verify_2fa(
             .execute(&pool)
             .await?;
             verificado = true;
+            metodo_usado = "recovery_code";
         }
     }
 
     if !verificado {
+        SessionManager::registrar_auditoria(
+            &pool,
+            AuditoriaEvento {
+                ator_id: Some(payload.usuario_id),
+                acao: "VERIFICACAO_2FA_FALHA",
+                entidade: "sessoes",
+                entidade_id: None,
+                dados_novos: json!({ "motivo": "codigo_invalido" }),
+                ip_origem: ip,
+                user_agent: Some(user_agent),
+            },
+        )
+        .await;
         return Err(AppError::Unauthorized(
             "Código TOTP ou código de recuperação inválido.".to_string(),
         ));
     }
 
-    let user_agent = headers
-        .get(header::USER_AGENT)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("JornalClient/2.1");
-    let ip = extrair_ip_cliente(&headers);
-    let token = SessionManager::criar_sessao(&pool, payload.usuario_id, ip, user_agent).await?;
-
-    let mut response_headers = HeaderMap::new();
-    if let Some(cookie_val) = construir_cookie_sessao(&token, 604_800) {
-        response_headers.insert(header::SET_COOKIE, cookie_val);
-    }
+    let response_headers = emitir_sessao_e_headers(&pool, payload.usuario_id, ip, user_agent).await?;
+    let uid_str = payload.usuario_id.to_string();
+    SessionManager::registrar_auditoria(
+        &pool,
+        AuditoriaEvento {
+            ator_id: Some(payload.usuario_id),
+            acao: "VERIFICACAO_2FA_SUCESSO",
+            entidade: "sessoes",
+            entidade_id: Some(&uid_str),
+            dados_novos: json!({ "metodo": metodo_usado }),
+            ip_origem: ip,
+            user_agent: Some(user_agent),
+        },
+    )
+    .await;
 
     Ok((
         response_headers,
@@ -239,8 +354,26 @@ pub async fn logout(
     State(pool): State<PgPool>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, AppError> {
+    let ip = extrair_ip_cliente(&headers);
+    let user_agent = extrair_user_agent(&headers);
+
     if let Some(token) = extrair_token_cookie(&headers) {
-        let _ = SessionManager::revogar_sessao(&pool, &token).await;
+        if let Ok(Some(uid)) = SessionManager::revogar_sessao(&pool, &token).await {
+            let uid_str = uid.to_string();
+            SessionManager::registrar_auditoria(
+                &pool,
+                AuditoriaEvento {
+                    ator_id: Some(uid),
+                    acao: "LOGOUT_SUCESSO",
+                    entidade: "sessoes",
+                    entidade_id: Some(&uid_str),
+                    dados_novos: json!({ "revogada": true }),
+                    ip_origem: ip,
+                    user_agent: Some(user_agent),
+                },
+            )
+            .await;
+        }
     }
 
     let mut response_headers = HeaderMap::new();
@@ -251,5 +384,86 @@ pub async fn logout(
     Ok((
         response_headers,
         Json(json!({ "sucesso": true, "mensagem": "Sessão encerrada com sucesso." })),
+    ))
+}
+
+pub async fn listar_sessoes(
+    auth: AuthContext,
+    headers: HeaderMap,
+    State(pool): State<PgPool>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let token_atual = extrair_token_cookie(&headers);
+    let sessoes =
+        SessionManager::listar_sessoes_usuario(&pool, auth.usuario_id, token_atual.as_deref())
+            .await?;
+
+    Ok(Json(json!({
+        "sucesso": true,
+        "usuario_id": auth.usuario_id,
+        "total_sessoes": sessoes.len(),
+        "sessoes": sessoes
+    })))
+}
+
+pub async fn revogar_todas_sessoes(
+    auth: AuthContext,
+    headers: HeaderMap,
+    State(pool): State<PgPool>,
+    body: Bytes,
+) -> Result<impl IntoResponse, AppError> {
+    let payload: RevogarSessoesRequest = if body.is_empty() {
+        RevogarSessoesRequest::default()
+    } else {
+        serde_json::from_slice(&body).map_err(|_| {
+            AppError::BadRequest("Corpo JSON inválido para revogação de sessões.".to_string())
+        })?
+    };
+
+    let manter_atual = payload.manter_sessao_atual.unwrap_or(false);
+    let token_atual = if manter_atual {
+        extrair_token_cookie(&headers)
+    } else {
+        None
+    };
+
+    let revogadas =
+        SessionManager::revogar_todas_sessoes(&pool, auth.usuario_id, token_atual.as_deref())
+            .await?;
+
+    let ip = extrair_ip_cliente(&headers);
+    let user_agent = extrair_user_agent(&headers);
+    let uid_str = auth.usuario_id.to_string();
+    SessionManager::registrar_auditoria(
+        &pool,
+        AuditoriaEvento {
+            ator_id: Some(auth.usuario_id),
+            acao: "REVOGACAO_TODAS_SESSOES",
+            entidade: "sessoes",
+            entidade_id: Some(&uid_str),
+            dados_novos: json!({
+                "manter_sessao_atual": manter_atual,
+                "sessoes_revogadas": revogadas
+            }),
+            ip_origem: ip,
+            user_agent: Some(user_agent),
+        },
+    )
+    .await;
+
+    let mut response_headers = HeaderMap::new();
+    if let Some(cookie_val) = (!manter_atual)
+        .then(|| construir_cookie_sessao("", 0))
+        .flatten()
+    {
+        response_headers.insert(header::SET_COOKIE, cookie_val);
+    }
+
+    Ok((
+        response_headers,
+        Json(json!({
+            "sucesso": true,
+            "sessoes_revogadas": revogadas,
+            "mensagem": "Sessões revogadas e evento registrado em auditoria."
+        })),
     ))
 }

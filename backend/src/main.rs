@@ -1,17 +1,6 @@
-mod config;
-mod error;
-mod middleware;
-mod models;
-mod routes;
-mod services;
-mod worker;
-
-use axum::http::{header, HeaderValue, Method};
-use config::AppConfig;
+use jornal_backend::{config::AppConfig, routes, worker};
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
-use tower_http::cors::CorsLayer;
-use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -45,32 +34,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Conexão com PostgreSQL 16 estabelecida com sucesso.");
 
-    // 4. Iniciar Worker em Segundo Plano do Hype Score (Ciclo de 5 min)
+    // 4. Iniciar Worker em Segundo Plano do Hype Score e Higiene de Sessões (Ciclo de 5 min)
     worker::hype_worker::HypeWorker::spawn(pool.clone());
 
-    // 5. Configurar Middlewares Globais (CORS com Credenciais, Trace, Limite Estrito de Buffer)
-    let allowed_origins: Vec<HeaderValue> = app_config
-        .cors_allowed_origins
-        .iter()
-        .filter_map(|o| HeaderValue::from_str(o).ok())
-        .collect();
-
-    let cors = CorsLayer::new()
-        .allow_origin(allowed_origins)
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
-        .allow_credentials(true);
-
-    let app = routes::build_api_router(pool)
-        .layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024))
-        .layer(TraceLayer::new_for_http())
-        .layer(cors);
+    // 5. Configurar Middlewares Globais (CORS com Credenciais, Headers, CSRF, Rate Limit, Limite de Buffer)
+    let app = routes::build_app_router(pool, &app_config)
+        .layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024));
 
     // 6. Iniciar Servidor HTTP Axum
     let addr = SocketAddr::new(

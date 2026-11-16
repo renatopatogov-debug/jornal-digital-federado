@@ -23,6 +23,19 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      - name: Cache Cargo (Dependências e Build Rust)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Verificar Formatação (cargo fmt)
         working-directory: backend
         run: cargo fmt --all -- --check
@@ -73,6 +86,28 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF (SELECT COUNT(*) FROM cargos) <> 9 THEN RAISE EXCEPTION 'Falha na matriz de 9 cargos RBAC'; END IF; END \$\$;"
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF (SELECT COUNT(*) FROM territorios WHERE tipo = 'ESTADUAL') <> 27 THEN RAISE EXCEPTION 'Falha na carga das 27 UFs'; END IF; END \$\$;"
 
+      - name: Instalar Rust Toolchain (E2E PostgreSQL)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo (E2E PostgreSQL)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Executar Testes de Integração End-to-End (PostgreSQL 16)
+        working-directory: backend
+        env:
+          RUN_E2E_DB_TESTS: "1"
+        run: cargo test --test integration -- --ignored --test-threads=1
+
   geojson-validation:
     name: GeoJSON IBGE Integrity Check
     runs-on: ubuntu-latest
@@ -97,6 +132,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      - name: Cache Dependências npm e Next.js
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            frontend/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('frontend/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-
 
       - name: Instalar Dependências (Frontend)
         working-directory: frontend

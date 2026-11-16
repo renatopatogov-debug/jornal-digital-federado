@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Play, Pause, Volume2, FastForward, Download, FileText, Video, Radio, ExternalLink } from "lucide-react";
+import { Play, Pause, Download, FileText, Radio, ExternalLink } from "lucide-react";
 
 interface PlayerMultimidiaProps {
   formato: "TEXTO" | "VIDEO" | "AUDIO" | "IMPRESSO_PDF";

@@ -11,8 +11,12 @@ pub struct AppConfig {
     pub modo_eleitoral_default: bool,
     pub max_ativacao_semanal_lider_municipal: i32,
     pub rate_limit_votos_por_minuto: i32,
+    pub rate_limit_global_per_minute: u32,
+    pub rate_limit_auth_per_minute: u32,
     pub cors_allowed_origins: Vec<String>,
     pub cookie_secure: bool,
+    pub cookie_same_site: String,
+    pub aes_previous_master_key: Option<String>,
 }
 
 impl AppConfig {
@@ -20,6 +24,19 @@ impl AppConfig {
         env::var("COOKIE_SECURE")
             .map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "false" | "0" | "no"))
             .unwrap_or(true)
+    }
+
+    pub fn cookie_same_site_from_env() -> String {
+        match env::var("COOKIE_SAME_SITE")
+            .unwrap_or_else(|_| "Strict".to_string())
+            .trim()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "lax" => "Lax".to_string(),
+            "none" => "None".to_string(),
+            _ => "Strict".to_string(),
+        }
     }
 
     pub fn from_env() -> Result<Self, String> {
@@ -57,6 +74,18 @@ impl AppConfig {
             .parse::<i32>()
             .unwrap_or(10);
 
+        let rate_limit_global_per_minute = env::var("RATE_LIMIT_REQUESTS_PER_MINUTE")
+            .unwrap_or_else(|_| "120".to_string())
+            .parse::<u32>()
+            .unwrap_or(120)
+            .max(1);
+
+        let rate_limit_auth_per_minute = env::var("RATE_LIMIT_AUTH_POR_MINUTO")
+            .unwrap_or_else(|_| "15".to_string())
+            .parse::<u32>()
+            .unwrap_or(15)
+            .max(1);
+
         let cors_allowed_origins = env::var("CORS_ALLOWED_ORIGINS")
             .unwrap_or_else(|_| "http://localhost:3000,http://127.0.0.1:3000".to_string())
             .split(',')
@@ -65,6 +94,11 @@ impl AppConfig {
             .collect();
 
         let cookie_secure = Self::cookie_secure_from_env();
+        let cookie_same_site = Self::cookie_same_site_from_env();
+        let aes_previous_master_key = env::var("AES_256_GCM_PREVIOUS_MASTER_KEY")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty());
 
         Ok(Self {
             host,
@@ -75,8 +109,12 @@ impl AppConfig {
             modo_eleitoral_default,
             max_ativacao_semanal_lider_municipal,
             rate_limit_votos_por_minuto,
+            rate_limit_global_per_minute,
+            rate_limit_auth_per_minute,
             cors_allowed_origins,
             cookie_secure,
+            cookie_same_site,
+            aes_previous_master_key,
         })
     }
 }

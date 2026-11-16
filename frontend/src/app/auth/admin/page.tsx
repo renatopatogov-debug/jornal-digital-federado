@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Lock, Fingerprint, ShieldAlert, ArrowRight, Building2, MapPin, Crown, AlertCircle } from "lucide-react";
+import { Lock, Fingerprint, ArrowRight, Building2, MapPin, Crown, AlertCircle } from "lucide-react";
 
 export default function LoginAdminPage() {
   const [email, setEmail] = useState("");

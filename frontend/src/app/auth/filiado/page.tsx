@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Vote, ShieldCheck, Mail, Hash, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Vote, Mail, Hash, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function LoginFiliadoPage() {
   const [identificador, setIdentificador] = useState("");

@@ -2,6 +2,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
+use rand::RngCore;
 use sha2::{Digest, Sha256};
 use std::env;
 
@@ -16,15 +17,26 @@ impl CryptoService {
         Self { cipher }
     }
 
-    pub fn from_env() -> Self {
-        let raw_key = env::var("AES_256_GCM_MASTER_KEY")
-            .unwrap_or_else(|_| "U0VNUEJBTkNBREFTRUdVUkFOQ0ExMjM0NTY3ODkwMTI=".to_string());
+    pub fn from_raw_secret(raw_key: &str) -> Self {
         let derived: [u8; 32] = Sha256::digest(raw_key.as_bytes()).into();
         Self::new(&derived)
     }
 
+    pub fn from_env() -> Self {
+        let raw_key = env::var("AES_256_GCM_MASTER_KEY")
+            .unwrap_or_else(|_| "U0VNUEJBTkNBREFTRUdVUkFOQ0ExMjM0NTY3ODkwMTI=".to_string());
+        Self::from_raw_secret(&raw_key)
+    }
+
+    pub fn previous_from_env() -> Option<Self> {
+        env::var("AES_256_GCM_PREVIOUS_MASTER_KEY")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .map(|raw| Self::from_raw_secret(&raw))
+    }
+
     /// ADR D8: Cifra o segredo TOTP gerando um envelope com Nonce (12B) + Ciphertext + Tag (16B)
-    #[allow(dead_code)]
     pub fn cifrar_envelope(
         &self,
         dado_em_claro: &[u8],
@@ -42,6 +54,32 @@ impl CryptoService {
         envelope.extend_from_slice(&ciphertext);
 
         Ok(envelope)
+    }
+
+    /// ADR D8: Cifra usando nonce aleatório criptográfico de 96 bits (ideal para rotação de chaves)
+    pub fn cifrar_envelope_aleatorio(&self, dado_em_claro: &[u8]) -> Result<Vec<u8>, String> {
+        let mut nonce_bytes = [0u8; 12];
+        rand::thread_rng().fill_bytes(&mut nonce_bytes);
+        self.cifrar_envelope(dado_em_claro, &nonce_bytes)
+    }
+
+    /// Decifra com fallback opcional para chave mestra anterior durante rotação.
+    /// Retorna `(texto_em_claro, usou_chave_anterior)`.
+    pub fn decifrar_com_fallback(
+        &self,
+        envelope: &[u8],
+        chave_anterior: Option<&Self>,
+    ) -> Result<(Vec<u8>, bool), String> {
+        if let Ok(plain) = self.decifrar_envelope(envelope) {
+            return Ok((plain, false));
+        }
+
+        if let Some(prev) = chave_anterior {
+            let plain = prev.decifrar_envelope(envelope)?;
+            return Ok((plain, true));
+        }
+
+        Err("Envelope não pôde ser autenticado pela chave ativa nem pela anterior.".to_string())
     }
 
     /// ADR D8: Decifra o envelope validando a Tag de autenticação antes de retornar o segredo
@@ -220,5 +258,34 @@ mod tests {
         assert!(!CryptoService::verificar_totp_sha256(
             segredo, "000000", ts
         ));
+    }
+
+    #[test]
+    fn rotacao_chave_aes_gcm_recriptografa_envelope_antigo() {
+        let antiga = CryptoService::from_raw_secret("chave-mestra-antiga-v1");
+        let nova = CryptoService::from_raw_secret("chave-mestra-nova-v2");
+        let segredo = b"SEGREDO_TOTP_ROTACIONAVEL";
+
+        let envelope_v1 = antiga
+            .cifrar_envelope_aleatorio(segredo)
+            .expect("cifra com v1 ok");
+
+        // Chave nova sozinha rejeita envelope v1; com fallback decifra e sinaliza rotação
+        assert!(nova.decifrar_envelope(&envelope_v1).is_err());
+        let (plain, usou_anterior) = nova
+            .decifrar_com_fallback(&envelope_v1, Some(&antiga))
+            .expect("fallback v1 ok");
+        assert!(usou_anterior);
+        assert_eq!(plain, segredo);
+
+        // Re-cifra para v2 e garante validação direta sem fallback
+        let envelope_v2 = nova
+            .cifrar_envelope_aleatorio(&plain)
+            .expect("cifra com v2 ok");
+        let (plain_v2, usou_anterior_v2) = nova
+            .decifrar_com_fallback(&envelope_v2, Some(&antiga))
+            .expect("v2 direta ok");
+        assert!(!usou_anterior_v2);
+        assert_eq!(plain_v2, segredo);
     }
 }
