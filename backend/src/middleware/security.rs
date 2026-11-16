@@ -35,15 +35,16 @@ pub async fn security_headers_middleware(
     next: Next,
 ) -> Response {
     let path = req.uri().path().to_string();
-    let is_sensitive_path = path.starts_with("/api/v1/auth")
-        || path.starts_with("/api/v1/usuarios")
-        || path.starts_with("/api/v1/infra");
-
-    // Proteção CSRF para requisições mutáveis autenticadas via cookie HTTP-Only
     let is_state_changing = !matches!(
         *req.method(),
         Method::GET | Method::HEAD | Method::OPTIONS
     );
+    let is_sensitive_path = path.starts_with("/api/v1/auth")
+        || path.starts_with("/api/v1/usuarios")
+        || path.starts_with("/api/v1/infra")
+        || (is_state_changing && path.starts_with("/api/v1/noticias"));
+
+    // Proteção CSRF para requisições mutáveis autenticadas via cookie HTTP-Only
     let origin_invalida = req
         .headers()
         .get(header::ORIGIN)
