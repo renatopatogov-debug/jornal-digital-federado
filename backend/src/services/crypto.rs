@@ -5,6 +5,7 @@ use aes_gcm::{
 use rand::RngCore;
 use sha2::{Digest, Sha256};
 use std::env;
+use uuid::Uuid;
 
 pub struct CryptoService {
     cipher: Aes256Gcm,
@@ -201,6 +202,50 @@ impl CryptoService {
         matched
     }
 
+    /// Emite token assinado (HMAC-SHA256, validade 5 min) vinculando o login (etapa 1) ao desafio 2FA (etapa 2)
+    pub fn emitir_token_desafio_2fa(usuario_id: Uuid, agora_secs: u64) -> String {
+        let salt = env::var("SESSION_SECRET_SALT")
+            .unwrap_or_else(|_| "chave_secreta_longa_para_hashing_de_cookies_http_only_2026".to_string());
+        let expira_em = agora_secs.saturating_add(300);
+        let payload = format!("{}:{}", usuario_id, expira_em);
+        let mac = Self::hmac_sha256(salt.as_bytes(), format!("2fa:{}", payload).as_bytes());
+        let mac_hex: String = mac.iter().map(|b| format!("{:02x}", b)).collect();
+        format!("{}:{}", payload, mac_hex)
+    }
+
+    /// Valida assinatura HMAC-SHA256, vínculo ao usuario_id e janela de expiração do desafio 2FA
+    pub fn validar_token_desafio_2fa(token: &str, usuario_id: Uuid, agora_secs: u64) -> bool {
+        let mut parts = token.trim().split(':');
+        let (Some(uid_str), Some(exp_str), Some(sig_hex), None) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+        else {
+            return false;
+        };
+
+        let Ok(uid_token) = Uuid::parse_str(uid_str) else {
+            return false;
+        };
+        if uid_token != usuario_id {
+            return false;
+        }
+
+        let Ok(expira_em) = exp_str.parse::<u64>() else {
+            return false;
+        };
+        if agora_secs > expira_em {
+            return false;
+        }
+
+        let salt = env::var("SESSION_SECRET_SALT")
+            .unwrap_or_else(|_| "chave_secreta_longa_para_hashing_de_cookies_http_only_2026".to_string());
+        let esperado_mac = Self::hmac_sha256(
+            salt.as_bytes(),
+            format!("2fa:{}:{}", uid_str, exp_str).as_bytes(),
+        );
+        let esperado_hex: String = esperado_mac.iter().map(|b| format!("{:02x}", b)).collect();
+        Self::constant_time_eq(esperado_hex.as_bytes(), sig_hex.as_bytes())
+    }
+
     fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         if a.len() != b.len() {
             return false;
@@ -287,5 +332,18 @@ mod tests {
             .expect("v2 direta ok");
         assert!(!usou_anterior_v2);
         assert_eq!(plain_v2, segredo);
+    }
+
+    #[test]
+    fn token_desafio_2fa_valida_assinatura_usuario_e_expiracao() {
+        let uid = uuid::Uuid::new_v4();
+        let outro_uid = uuid::Uuid::new_v4();
+        let agora = 1_794_600_000u64;
+
+        let token = CryptoService::emitir_token_desafio_2fa(uid, agora);
+        assert!(CryptoService::validar_token_desafio_2fa(&token, uid, agora + 60));
+        assert!(!CryptoService::validar_token_desafio_2fa(&token, outro_uid, agora + 60));
+        assert!(!CryptoService::validar_token_desafio_2fa(&token, uid, agora + 301));
+        assert!(!CryptoService::validar_token_desafio_2fa("token:invalido:0000", uid, agora));
     }
 }

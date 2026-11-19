@@ -30,15 +30,6 @@ export const BotaoVotar: React.FC<BotaoVotarProps> = ({
     setErroVoto(false);
     setRequerLogin(false);
 
-    const usuarioId =
-      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
-    if (!usuarioId) {
-      setRequerLogin(true);
-      setErroVoto(true);
-      setMensagem("Faça login como filiado verificado para registrar seu voto no ledger.");
-      return;
-    }
-
     setCarregando(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
@@ -47,16 +38,27 @@ export const BotaoVotar: React.FC<BotaoVotarProps> = ({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          usuario_id: usuarioId,
           tipo_voto: tipo,
         }),
       });
 
-      const data: { mensagem?: string } | null = await res.json().catch(() => null);
+      const data: {
+        mensagem?: string;
+        votos_positivos?: number;
+        votos_negativos?: number;
+      } | null = await res.json().catch(() => null);
       if (res.ok) {
         setVotou(tipo);
-        if (tipo === 1) setPositivos((p) => p + 1);
-        if (tipo === -1) setNegativos((n) => n + 1);
+        if (typeof data?.votos_positivos === "number") {
+          setPositivos(data.votos_positivos);
+        } else if (tipo === 1) {
+          setPositivos((p) => p + 1);
+        }
+        if (typeof data?.votos_negativos === "number") {
+          setNegativos(data.votos_negativos);
+        } else if (tipo === -1) {
+          setNegativos((n) => n + 1);
+        }
         setMensagem(
           data?.mensagem ||
             "Seu voto foi persistido no ledger auditável (1 filiado = 1 voto)."

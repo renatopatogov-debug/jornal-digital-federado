@@ -1,6 +1,6 @@
-use crate::middleware::rbac::extrair_ip_cliente;
+use crate::middleware::rbac::extrair_ip_requisicao;
 use axum::{
-    extract::{Request, State},
+    extract::{ConnectInfo, Request, State},
     http::{header, HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
@@ -8,7 +8,7 @@ use axum::{
 };
 use serde_json::json;
 use std::collections::HashMap;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
@@ -23,15 +23,17 @@ struct WindowBucket {
 pub struct RateLimiter {
     global_limit: u32,
     auth_limit: u32,
+    trust_proxy: bool,
     window: Duration,
     buckets: Arc<Mutex<HashMap<(IpAddr, bool), WindowBucket>>>,
 }
 
 impl RateLimiter {
-    pub fn new(global_limit: u32, auth_limit: u32) -> Self {
+    pub fn new(global_limit: u32, auth_limit: u32, trust_proxy: bool) -> Self {
         Self {
             global_limit: global_limit.max(1),
             auth_limit: auth_limit.max(1),
+            trust_proxy,
             window: Duration::from_secs(60),
             buckets: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -78,7 +80,11 @@ pub async fn rate_limit_middleware(
 ) -> Response {
     let path = req.uri().path();
     let is_auth_route = path.starts_with("/api/v1/auth");
-    let ip = extrair_ip_cliente(req.headers());
+    let peer_ip = req
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ci| ci.0.ip());
+    let ip = extrair_ip_requisicao(req.headers(), peer_ip, limiter.trust_proxy);
 
     if !limiter.check(ip, is_auth_route).await {
         let mut resp = (

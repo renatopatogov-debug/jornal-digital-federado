@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BannerEleitoral } from "@/components/BannerEleitoral";
+import { BotaoSessaoHeader } from "@/components/BotaoSessaoHeader";
 
 export const metadata: Metadata = {
   title: "Jornal Digital Federado — Notícias e Participação",
@@ -71,12 +72,7 @@ export default async function RootLayout({
               <a href="/cms" className="text-blue-400 hover:text-blue-300 transition-colors">
                 Área de Redação (CMS)
               </a>
-              <a
-                href="/auth/login"
-                className="bg-destaque hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-colors"
-              >
-                Entrar
-              </a>
+              <BotaoSessaoHeader />
             </nav>
           </div>
         </header>

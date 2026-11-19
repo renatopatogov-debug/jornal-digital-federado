@@ -1,5 +1,6 @@
 import React from "react";
 import { Flame, Clock, MapPin, Video, Radio, FileText, BookOpen } from "lucide-react";
+import { resolverLabelTerritorio } from "@/lib/territorios";
 
 export interface NoticiaItem {
   id: string;
@@ -22,33 +23,6 @@ export interface NoticiaItem {
   hype_score?: number | null;
 }
 
-const NOMES_TERRITORIOS: Record<string, string> = {
-  "11": "Rondônia (RO)",
-  "12": "Acre (AC)",
-  "13": "Amazonas (AM)",
-  "15": "Pará (PA)",
-  "21": "Maranhão (MA)",
-  "23": "Ceará (CE)",
-  "26": "Pernambuco (PE)",
-  "29": "Bahia (BA)",
-  "31": "Minas Gerais (MG)",
-  "32": "Espírito Santo (ES)",
-  "33": "Rio de Janeiro (RJ)",
-  "35": "São Paulo (SP)",
-  "41": "Paraná (PR)",
-  "42": "Santa Catarina (SC)",
-  "43": "Rio Grande do Sul (RS)",
-  "50": "Mato Grosso do Sul (MS)",
-  "51": "Mato Grosso (MT)",
-  "52": "Goiás (GO)",
-  "53": "Distrito Federal (DF)",
-  "3550308": "São Paulo - SP",
-  "3304557": "Rio de Janeiro - RJ",
-  "3106200": "Belo Horizonte - MG",
-  "4106900": "Curitiba - PR",
-  "5300108": "Brasília - DF",
-};
-
 interface CardNoticiaProps {
   noticia: NoticiaItem;
   modoEleitoral: boolean;
@@ -69,12 +43,12 @@ export const CardNoticia: React.FC<CardNoticiaProps> = ({ noticia, modoEleitoral
   const totalPalavras = textoLimpo.trim().split(/\s+/).filter(Boolean).length;
   const minutosLeitura = Math.max(1, Math.ceil(totalPalavras / 180));
 
-  const labelTerritorio =
-    noticia.territorio_nome ||
-    (noticia.ibge_codigo && NOMES_TERRITORIOS[noticia.ibge_codigo]) ||
-    (noticia.escopo === "NACIONAL"
-      ? "Nacional • Brasil"
-      : `${noticia.escopo} (${noticia.ibge_codigo || ""})`);
+  const labelTerritorio = resolverLabelTerritorio({
+    escopo: noticia.escopo,
+    ibgeCodigo: noticia.ibge_codigo,
+    territorioNome: noticia.territorio_nome,
+    uf: noticia.uf,
+  });
 
   const renderBadgeFormato = () => {
     if (noticia.formato === "VIDEO") {

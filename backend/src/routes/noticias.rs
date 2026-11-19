@@ -68,6 +68,8 @@ pub struct NoticiaDetalheItem {
     pub subtitulo: Option<String>,
     pub escopo: TipoEscopo,
     pub ibge_codigo: Option<String>,
+    pub uf: Option<String>,
+    pub territorio_nome: Option<String>,
     pub formato: TipoFormatoMateria,
     pub video_url: Option<String>,
     pub audio_url: Option<String>,
@@ -95,6 +97,8 @@ struct NoticiaDetalheRow {
     subtitulo: Option<String>,
     escopo: TipoEscopo,
     ibge_codigo: Option<String>,
+    uf: Option<String>,
+    territorio_nome: Option<String>,
     formato: TipoFormatoMateria,
     video_url: Option<String>,
     audio_url: Option<String>,
@@ -125,7 +129,8 @@ pub async fn obter_noticia_por_slug(
     let row = sqlx::query_as::<_, NoticiaDetalheRow>(
         r#"
         SELECT n.id, n.titulo, n.slug, n.subtitulo, n.escopo,
-               n.ibge_codigo, n.formato, n.video_url, n.audio_url,
+               n.ibge_codigo, t.uf::text AS uf, t.nome AS territorio_nome,
+               n.formato, n.video_url, n.audio_url,
                n.pdf_edicao_url, n.conteudo_sanitizado, n.imagem_destaque_url,
                u.nome AS autor_nome,
                n.votos_positivos, n.votos_negativos,
@@ -133,6 +138,7 @@ pub async fn obter_noticia_por_slug(
                n.publicado_em
         FROM noticias n
         LEFT JOIN usuarios u ON n.autor_id = u.id
+        LEFT JOIN territorios t ON n.ibge_codigo = t.codigo_ibge
         WHERE n.slug = $1 AND n.status = 'PUBLICADO'
         LIMIT 1
         "#,
@@ -151,6 +157,8 @@ pub async fn obter_noticia_por_slug(
             subtitulo: row.subtitulo,
             escopo: row.escopo,
             ibge_codigo: row.ibge_codigo,
+            uf: row.uf,
+            territorio_nome: row.territorio_nome,
             formato: row.formato,
             video_url: row.video_url,
             audio_url: row.audio_url,

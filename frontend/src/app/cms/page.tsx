@@ -23,9 +23,11 @@ import {
   Clock,
   Flame,
   Layers,
+  LogOut,
 } from "lucide-react";
 import { CardNoticia } from "@/components/CardNoticia";
 import { PlayerMultimidia } from "@/components/PlayerMultimidia";
+import { buscarSessaoAtual, encerrarSessao, SessaoUsuario } from "@/lib/auth";
 
 const CATALOGO_ESTADOS_IBGE = [
   { ibge: "35", nome: "São Paulo (SP)" },
@@ -69,6 +71,9 @@ interface MateriaAcervo {
 
 export default function CMSPage() {
   const [abaAtiva, setAbaAtiva] = useState<"redigir" | "escalonamento" | "governanca">("redigir");
+  const [sessaoAtual, setSessaoAtual] = useState<SessaoUsuario | null>(null);
+  const [carregandoSessao, setCarregandoSessao] = useState<boolean>(true);
+  const [saindo, setSaindo] = useState<boolean>(false);
 
   // Estados do Editor Editorial
   const [titulo, setTitulo] = useState("");
@@ -124,6 +129,24 @@ export default function CMSPage() {
   const [cpfHashNovoFiliado, setCpfHashNovoFiliado] = useState("");
   const [liderDissidenteAlvo, setLiderDissidenteAlvo] = useState("");
   const [motivoKillSwitch, setMotivoKillSwitch] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    buscarSessaoAtual(controller.signal).then((sessao) => {
+      if (!controller.signal.aborted) {
+        setSessaoAtual(sessao);
+        setCarregandoSessao(false);
+      }
+    });
+    return () => controller.abort();
+  }, []);
+
+  const handleLogoutCms = async () => {
+    setSaindo(true);
+    await encerrarSessao();
+    setSessaoAtual(null);
+    window.location.href = "/auth/login";
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -196,9 +219,7 @@ export default function CMSPage() {
 
   const submeterMateria = async (publicarAgora: boolean) => {
     setMensagemFeedback(null);
-    const autorId =
-      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
-    if (!autorId) {
+    if (!carregandoSessao && !sessaoAtual) {
       setMensagemFeedback({
         tipo: "alerta",
         texto: "Sessão editorial não identificada. Faça login em /auth/admin antes de publicar.",
@@ -209,7 +230,6 @@ export default function CMSPage() {
     setEnviando(true);
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
     const payload = {
-      autor_id: autorId,
       titulo,
       subtitulo: subtitulo || null,
       escopo,
@@ -230,6 +250,10 @@ export default function CMSPage() {
         credentials: "include",
         body: JSON.stringify(payload),
       });
+
+      if (res.status === 401) {
+        setSessaoAtual(null);
+      }
 
       const data: {
         noticia_id?: string;
@@ -285,11 +309,9 @@ export default function CMSPage() {
 
   const handleSolicitarEscalonamento = async (id: string, destino: "ESTADUAL" | "NACIONAL") => {
     setMensagemFeedback(null);
-    const solicitanteId =
-      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
     const item = acervo.find((m) => m.id === id);
 
-    if (!solicitanteId) {
+    if (!carregandoSessao && !sessaoAtual) {
       setMensagemFeedback({
         tipo: "alerta",
         texto: "Sessão editorial não identificada. Faça login em /auth/admin para solicitar escalonamento.",
@@ -311,12 +333,15 @@ export default function CMSPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          solicitante_id: solicitanteId,
           escopo_origem: item.escopo,
           escopo_destino: destino,
           justificativa: "Alto engajamento no Hype regional e relevância federativa.",
         }),
       });
+
+      if (res.status === 401) {
+        setSessaoAtual(null);
+      }
 
       const data: { sucesso?: boolean; mensagem?: string } | null = await res
         .json()
@@ -352,9 +377,7 @@ export default function CMSPage() {
     setMensagemFeedback(null);
     if (cotaAtivacoesUsada >= 50) return;
 
-    const liderId =
-      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
-    if (!liderId) {
+    if (!carregandoSessao && !sessaoAtual) {
       setMensagemFeedback({
         tipo: "alerta",
         texto: "Faça login como liderança em /auth/admin antes de habilitar filiados.",
@@ -369,10 +392,12 @@ export default function CMSPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          lider_id: liderId,
           email: emailNovoFiliado.trim(),
         }),
       });
+      if (res.status === 401) {
+        setSessaoAtual(null);
+      }
       const data: { sucesso?: boolean; mensagem?: string } | null = await res
         .json()
         .catch(() => null);
@@ -409,9 +434,7 @@ export default function CMSPage() {
     setMensagemFeedback(null);
     if (!motivoKillSwitch.trim() || !liderDissidenteAlvo.trim()) return;
 
-    const autorId =
-      typeof window !== "undefined" ? localStorage.getItem("jf_usuario_id") : null;
-    if (!autorId) {
+    if (!carregandoSessao && !sessaoAtual) {
       setMensagemFeedback({
         tipo: "alerta",
         texto: "Faça login com alçada superior em /auth/admin para executar o Kill-Switch.",
@@ -430,12 +453,14 @@ export default function CMSPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          autor_id: autorId,
           lider_dissidente_id: isUuid ? alvo : null,
           lider_dissidente_email: isUuid ? null : alvo,
           motivo: motivoKillSwitch.trim(),
         }),
       });
+      if (res.status === 401) {
+        setSessaoAtual(null);
+      }
 
       const data: { sucesso?: boolean; mensagem?: string } | null = await res
         .json()
@@ -468,9 +493,35 @@ export default function CMSPage() {
       {/* Cabeçalho do Estúdio Editorial */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-destaque bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200 mb-2">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Ambiente Seguro • Anel de Confiança Editorial (2FA Ativo)
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-destaque bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              {carregandoSessao
+                ? "Verificando sessão HTTP-Only..."
+                : sessaoAtual
+                ? `${sessaoAtual.nome} • ${sessaoAtual.cargo_nome} (${sessaoAtual.escopo})`
+                : "Sessão não autenticada"}
+            </div>
+            {sessaoAtual ? (
+              <button
+                type="button"
+                onClick={handleLogoutCms}
+                disabled={saindo}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-red-700 bg-slate-100 hover:bg-red-50 px-2.5 py-1 rounded-md border border-slate-200 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                {saindo ? "Saindo..." : "Sair"}
+              </button>
+            ) : (
+              !carregandoSessao && (
+                <a
+                  href="/auth/admin"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-destaque hover:bg-blue-700 px-2.5 py-1 rounded-md transition-colors"
+                >
+                  Fazer Login Editorial
+                </a>
+              )
+            )}
           </div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 flex items-center gap-2.5">
             <PenTool className="w-7 h-7 text-destaque" />

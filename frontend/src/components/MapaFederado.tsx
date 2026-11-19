@@ -4,17 +4,8 @@ import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Compass, RotateCcw } from "lucide-react";
 
-// Importação dinâmica para desabilitar SSR no Leaflet
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.MapContainer),
-  { ssr: false }
-);
-const TileLayer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.TileLayer),
-  { ssr: false }
-);
-const GeoJSON = dynamic(
-  () => import("react-leaflet").then((mod) => mod.GeoJSON),
+const MapaLeafletInterno = dynamic(
+  () => import("@/components/MapaLeafletInterno").then((mod) => mod.MapaLeafletInterno),
   { ssr: false }
 );
 
@@ -23,10 +14,17 @@ interface MapaFederadoProps {
 }
 
 export const MapaFederado: React.FC<MapaFederadoProps> = ({ onSelectTerritorio }) => {
-  const [brasilGeoJson, setBrasilGeoJson] = useState<any>(null);
-  const [ufGeoJson, setUfGeoJson] = useState<any>(null);
+  const [montado, setMontado] = useState<boolean>(false);
+  const [brasilGeoJson, setBrasilGeoJson] = useState<unknown>(null);
+  const [ufGeoJson, setUfGeoJson] = useState<unknown>(null);
   const [ufSelecionada, setUfSelecionada] = useState<string | null>(null);
   const [carregando, setCarregando] = useState<boolean>(true);
+  const [resetCounter, setResetCounter] = useState<number>(0);
+
+  // Evita mismatch de hidratação SSR no Next.js 14
+  useEffect(() => {
+    setMontado(true);
+  }, []);
 
   // 1. Carregar malha macro do Brasil (27 UFs)
   useEffect(() => {
@@ -66,8 +64,15 @@ export const MapaFederado: React.FC<MapaFederadoProps> = ({ onSelectTerritorio }
   const resetarParaNacional = () => {
     setUfSelecionada(null);
     setUfGeoJson(null);
+    setResetCounter((c) => c + 1);
     if (onSelectTerritorio) {
       onSelectTerritorio("UF", "", "Nacional");
+    }
+  };
+
+  const selecionarMunicipio = (codigoIbge: string, nome: string) => {
+    if (onSelectTerritorio) {
+      onSelectTerritorio("MUNICIPIO", codigoIbge, nome);
     }
   };
 
@@ -81,6 +86,7 @@ export const MapaFederado: React.FC<MapaFederadoProps> = ({ onSelectTerritorio }
         </span>
         {ufSelecionada && (
           <button
+            type="button"
             onClick={resetarParaNacional}
             className="flex items-center gap-1 bg-slate-700 hover:bg-slate-600 px-2 py-0.5 rounded text-[11px] transition-colors"
           >
@@ -90,80 +96,22 @@ export const MapaFederado: React.FC<MapaFederadoProps> = ({ onSelectTerritorio }
         )}
       </div>
 
-      {carregando && (
+      {(!montado || carregando) && (
         <div className="absolute inset-0 z-[1001] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center text-white text-sm font-medium">
           Carregando cartografia sob demanda...
         </div>
       )}
 
-      {/* Container Leaflet */}
-      {typeof window !== "undefined" && (
-        <MapContainer
-          center={[-14.235, -51.9253]}
-          zoom={4}
-          scrollWheelZoom={false}
-          className="w-full h-full"
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
-
-          {/* Camada das 27 UFs do Brasil (Nível Macro) */}
-          {!ufSelecionada && brasilGeoJson && (
-            <GeoJSON
-              data={brasilGeoJson}
-              style={() => ({
-                fillColor: "#3b82f6",
-                weight: 1.5,
-                opacity: 1,
-                color: "#60a5fa",
-                fillOpacity: 0.25,
-              })}
-              onEachFeature={(feature: any, layer: any) => {
-                const { uf, nome, ibge_codigo } = feature.properties;
-                layer.bindTooltip(`<b>${nome} (${uf})</b><br/>Clique para explorar municípios`, {
-                  sticky: true,
-                });
-                layer.on({
-                  click: () => selecionarUf(uf, ibge_codigo, nome),
-                  mouseover: (e: any) => e.target.setStyle({ fillOpacity: 0.6, weight: 2 }),
-                  mouseout: (e: any) => e.target.setStyle({ fillOpacity: 0.25, weight: 1.5 }),
-                });
-              }}
-            />
-          )}
-
-          {/* Camada Municipal da UF Selecionada (Nível Micro sob Demanda) */}
-          {ufSelecionada && ufGeoJson && (
-            <GeoJSON
-              key={ufSelecionada}
-              data={ufGeoJson}
-              style={() => ({
-                fillColor: "#10b981",
-                weight: 1,
-                opacity: 0.9,
-                color: "#34d399",
-                fillOpacity: 0.35,
-              })}
-              onEachFeature={(feature: any, layer: any) => {
-                const { nome, ibge_codigo } = feature.properties;
-                layer.bindTooltip(`<b>${nome}</b><br/>Código IBGE: ${ibge_codigo}`, {
-                  sticky: true,
-                });
-                layer.on({
-                  click: () => {
-                    if (onSelectTerritorio) {
-                      onSelectTerritorio("MUNICIPIO", ibge_codigo, nome);
-                    }
-                  },
-                  mouseover: (e: any) => e.target.setStyle({ fillOpacity: 0.7, weight: 2 }),
-                  mouseout: (e: any) => e.target.setStyle({ fillOpacity: 0.35, weight: 1 }),
-                });
-              }}
-            />
-          )}
-        </MapContainer>
+      {/* Container Leaflet montado estritamente após hidratação no cliente */}
+      {montado && (
+        <MapaLeafletInterno
+          brasilGeoJson={brasilGeoJson}
+          ufGeoJson={ufGeoJson}
+          ufSelecionada={ufSelecionada}
+          resetCounter={resetCounter}
+          onSelectUf={selecionarUf}
+          onSelectMunicipio={selecionarMunicipio}
+        />
       )}
     </div>
   );

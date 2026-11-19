@@ -10,6 +10,7 @@ export default function LoginAdminPage() {
   const [jurisdicaoSelecionada, setJurisdicaoSelecionada] = useState<"MUNICIPAL" | "ESTADUAL" | "PRESIDENCIAL">("MUNICIPAL");
   const [etapa2FA, setEtapa2FA] = useState(false);
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
+  const [desafio2faToken, setDesafio2faToken] = useState<string | null>(null);
   const [codigoTotp, setCodigoTotp] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -32,6 +33,7 @@ export default function LoginAdminPage() {
         sucesso?: boolean;
         requer_2fa?: boolean;
         usuario_id?: string;
+        desafio_2fa_token?: string | null;
         mensagem?: string;
       } | null = await res.json().catch(() => null);
 
@@ -45,10 +47,10 @@ export default function LoginAdminPage() {
 
       if (data.usuario_id) {
         setUsuarioId(data.usuario_id);
-        localStorage.setItem("jf_usuario_id", data.usuario_id);
       }
 
       if (data.requer_2fa) {
+        setDesafio2faToken(data.desafio_2fa_token || null);
         setEtapa2FA(true);
       } else {
         redirecionarPorCargo(jurisdicaoSelecionada);
@@ -67,7 +69,7 @@ export default function LoginAdminPage() {
       setErro("Informe os 6 dígitos do autenticador.");
       return;
     }
-    if (!usuarioId) {
+    if (!usuarioId || !desafio2faToken) {
       setErro("Sessão de pré-autenticação expirada. Faça o login novamente.");
       setEtapa2FA(false);
       return;
@@ -83,6 +85,7 @@ export default function LoginAdminPage() {
         body: JSON.stringify({
           usuario_id: usuarioId,
           codigo_totp: codigoTotp.trim(),
+          desafio_2fa_token: desafio2faToken,
         }),
       });
 
@@ -97,7 +100,6 @@ export default function LoginAdminPage() {
         return;
       }
 
-      localStorage.setItem("jf_usuario_id", data.usuario_id || usuarioId);
       redirecionarPorCargo(jurisdicaoSelecionada);
     } catch {
       setErro("Não foi possível validar o segundo fator junto ao servidor.");

@@ -16,6 +16,7 @@ pub struct AppConfig {
     pub cors_allowed_origins: Vec<String>,
     pub cookie_secure: bool,
     pub cookie_same_site: String,
+    pub trust_proxy: bool,
     pub aes_previous_master_key: Option<String>,
 }
 
@@ -24,6 +25,12 @@ impl AppConfig {
         env::var("COOKIE_SECURE")
             .map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "false" | "0" | "no"))
             .unwrap_or(true)
+    }
+
+    pub fn trust_proxy_from_env() -> bool {
+        env::var("TRUST_PROXY")
+            .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "true" | "1" | "yes"))
+            .unwrap_or(false)
     }
 
     pub fn cookie_same_site_from_env() -> String {
@@ -95,6 +102,7 @@ impl AppConfig {
 
         let cookie_secure = Self::cookie_secure_from_env();
         let cookie_same_site = Self::cookie_same_site_from_env();
+        let trust_proxy = Self::trust_proxy_from_env();
         let aes_previous_master_key = env::var("AES_256_GCM_PREVIOUS_MASTER_KEY")
             .ok()
             .map(|v| v.trim().to_string())
@@ -114,6 +122,7 @@ impl AppConfig {
             cors_allowed_origins,
             cookie_secure,
             cookie_same_site,
+            trust_proxy,
             aes_previous_master_key,
         })
     }

@@ -5,6 +5,7 @@ import { BotaoCompartilhar } from "@/components/BotaoCompartilhar";
 import { BotaoVotar } from "@/components/BotaoVotar";
 import { PlayerMultimidia } from "@/components/PlayerMultimidia";
 import { ControleLeituraAcessivel } from "@/components/ControleLeituraAcessivel";
+import { resolverLabelTerritorio } from "@/lib/territorios";
 
 interface NoticiaDetalhe {
   id: string;
@@ -13,6 +14,8 @@ interface NoticiaDetalhe {
   subtitulo?: string;
   escopo: "NACIONAL" | "ESTADUAL" | "MUNICIPAL";
   ibge_codigo?: string;
+  uf?: string;
+  territorio_nome?: string;
   formato: "TEXTO" | "VIDEO" | "AUDIO" | "IMPRESSO_PDF";
   video_url?: string;
   audio_url?: string;
@@ -23,24 +26,8 @@ interface NoticiaDetalhe {
   publicado_em: string;
   votos_positivos: number;
   votos_negativos: number;
-  hype_score?: number;
+  hype_score?: number | null;
 }
-
-const NOMES_TERRITORIOS: Record<string, string> = {
-  "35": "São Paulo (SP)",
-  "3550308": "São Paulo - Capital (SP)",
-  "33": "Rio de Janeiro (RJ)",
-  "3304557": "Rio de Janeiro - Capital (RJ)",
-  "31": "Minas Gerais (MG)",
-  "3106200": "Belo Horizonte (MG)",
-  "41": "Paraná (PR)",
-  "4106900": "Curitiba (PR)",
-  "43": "Rio Grande do Sul (RS)",
-  "29": "Bahia (BA)",
-  "26": "Pernambuco (PE)",
-  "53": "Distrito Federal (DF)",
-  "5300108": "Brasília (DF)",
-};
 
 function estimarMinutosLeitura(html: string, formato: string): string {
   if (formato === "VIDEO") return "Vídeo";
@@ -127,9 +114,13 @@ export default async function NoticiaPage({ params }: { params: { slug: string }
     minute: "2-digit",
   });
 
-  const labelTerritorio = noticia.ibge_codigo
-    ? NOMES_TERRITORIOS[noticia.ibge_codigo] || `IBGE ${noticia.ibge_codigo}`
-    : "Cobertura Nacional";
+  const labelTerritorio = resolverLabelTerritorio({
+    escopo: noticia.escopo,
+    ibgeCodigo: noticia.ibge_codigo,
+    territorioNome: noticia.territorio_nome,
+    uf: noticia.uf,
+    labelNacional: "Cobertura Nacional",
+  });
 
   const tempoLeitura = estimarMinutosLeitura(noticia.conteudo_sanitizado, noticia.formato);
 
@@ -242,7 +233,7 @@ export default async function NoticiaPage({ params }: { params: { slug: string }
               </p>
             </div>
 
-            {!modoEleitoral && noticia.hype_score !== undefined && (
+            {!modoEleitoral && noticia.hype_score !== null && noticia.hype_score !== undefined && (
               <div className="flex items-center gap-1.5 bg-amber-50 text-amber-800 px-3 py-1.5 rounded-full border border-amber-200 text-xs font-bold">
                 <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
                 <span>{noticia.hype_score.toFixed(1)} Hype</span>

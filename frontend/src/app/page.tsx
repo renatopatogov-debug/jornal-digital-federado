@@ -4,6 +4,7 @@ import { PortalInterativoLeitor } from "@/components/PortalInterativoLeitor";
 
 async function fetchFeedData(): Promise<{
   modo_eleitoral_ativo: boolean;
+  tem_mais: boolean;
   noticias: NoticiaItem[];
 }> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
@@ -14,7 +15,11 @@ async function fetchFeedData(): Promise<{
     if (res.ok) {
       const data = await res.json();
       if (data.noticias && data.noticias.length > 0) {
-        return data;
+        return {
+          modo_eleitoral_ativo: Boolean(data.modo_eleitoral_ativo),
+          tem_mais: Boolean(data.tem_mais),
+          noticias: data.noticias,
+        };
       }
     }
   } catch (err) {
@@ -23,6 +28,7 @@ async function fetchFeedData(): Promise<{
 
   return {
     modo_eleitoral_ativo: false,
+    tem_mais: false,
     noticias: [
       {
         id: "demo-1",
@@ -89,13 +95,14 @@ async function fetchFeedData(): Promise<{
 }
 
 export default async function HomePage() {
-  const { modo_eleitoral_ativo, noticias } = await fetchFeedData();
+  const { modo_eleitoral_ativo, tem_mais, noticias } = await fetchFeedData();
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 md:py-8">
       <PortalInterativoLeitor
         noticiasIniciais={noticias}
         modoEleitoralAtivo={modo_eleitoral_ativo}
+        temMaisInicial={tem_mais}
       />
     </div>
   );

@@ -1,33 +1,70 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { MapaFederado } from "@/components/MapaFederado";
 import { CardNoticia, NoticiaItem } from "@/components/CardNoticia";
 import { BarraPesquisaTerritorio, FiltroFormato } from "@/components/BarraPesquisaTerritorio";
-import { Newspaper, Map, ChevronDown, ChevronUp, MapPin, FilterX } from "lucide-react";
+import { UF_POR_CODIGO_IBGE } from "@/lib/territorios";
+import { Newspaper, Map, ChevronDown, ChevronUp, MapPin, FilterX, Loader2 } from "lucide-react";
 
 interface PortalInterativoLeitorProps {
   noticiasIniciais: NoticiaItem[];
   modoEleitoralAtivo: boolean;
+  temMaisInicial?: boolean;
 }
 
-const UF_POR_CODIGO_IBGE: Record<string, string> = {
-  "11": "RO", "12": "AC", "13": "AM", "14": "RR", "15": "PA", "16": "AP", "17": "TO",
-  "21": "MA", "22": "PI", "23": "CE", "24": "RN", "25": "PB", "26": "PE", "27": "AL", "28": "SE", "29": "BA",
-  "31": "MG", "32": "ES", "33": "RJ", "35": "SP",
-  "41": "PR", "42": "SC", "43": "RS",
-  "50": "MS", "51": "MT", "52": "GO", "53": "DF",
-};
+const LIMITE_POR_PAGINA = 24;
+
+function montarQueryFeed(params: {
+  busca: string;
+  ufAtiva: string | null;
+  municipioAtivo: { codigo: string; nome: string } | null;
+  formatoAtivo: FiltroFormato;
+  offset: number;
+}): string {
+  const qs = new URLSearchParams();
+  qs.set("limit", String(LIMITE_POR_PAGINA));
+  qs.set("offset", String(params.offset));
+  qs.set("incluir_nacional", "true");
+
+  if (params.municipioAtivo) {
+    qs.set("ibge", params.municipioAtivo.codigo);
+  } else if (params.ufAtiva) {
+    qs.set("uf", params.ufAtiva);
+  }
+
+  const termo = params.busca.trim();
+  if (termo) {
+    qs.set("q", termo);
+  }
+
+  if (params.formatoAtivo !== "TODOS") {
+    qs.set("formato", params.formatoAtivo);
+  }
+
+  return qs.toString();
+}
 
 export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
   noticiasIniciais,
   modoEleitoralAtivo,
+  temMaisInicial = false,
 }) => {
   const [busca, setBusca] = useState("");
   const [ufAtiva, setUfAtiva] = useState<string | null>(null);
   const [municipioAtivo, setMunicipioAtivo] = useState<{ codigo: string; nome: string } | null>(null);
   const [formatoAtivo, setFormatoAtivo] = useState<FiltroFormato>("TODOS");
   const [mapaMobileAberto, setMapaMobileAberto] = useState(false);
+
+  const [noticiasServidor, setNoticiasServidor] = useState<NoticiaItem[]>(noticiasIniciais);
+  const [modoEleitoral, setModoEleitoral] = useState<boolean>(modoEleitoralAtivo);
+  const [temMais, setTemMais] = useState<boolean>(temMaisInicial);
+  const [carregandoFeed, setCarregandoFeed] = useState<boolean>(false);
+  const [carregandoMais, setCarregandoMais] = useState<boolean>(false);
+  const [usandoFallbackLocal, setUsandoFallbackLocal] = useState<boolean>(false);
+
+  const primeiraRenderizacao = useRef<boolean>(true);
+  const buscaAnterior = useRef<string>("");
 
   // Integração direta quando o leitor clica no Mapa Leaflet
   const handleSelectTerritorioMapa = (tipo: "UF" | "MUNICIPIO", codigo: string, nome: string) => {
@@ -49,22 +86,126 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
     }
   };
 
-  // Filtragem reativa instantânea para o leitor
+  // Busca real no backend (/api/v1/feed) quando filtros ou pesquisa mudam
+  useEffect(() => {
+    if (primeiraRenderizacao.current) {
+      primeiraRenderizacao.current = false;
+      buscaAnterior.current = busca;
+      return;
+    }
+
+    const buscaMudou = buscaAnterior.current !== busca;
+    buscaAnterior.current = busca;
+
+    const controller = new AbortController();
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    const atrasoMs = buscaMudou && busca.trim().length > 0 ? 300 : 0;
+
+    const timer = setTimeout(async () => {
+      setCarregandoFeed(true);
+      try {
+        const qs = montarQueryFeed({
+          busca,
+          ufAtiva,
+          municipioAtivo,
+          formatoAtivo,
+          offset: 0,
+        });
+        const res = await fetch(`${apiUrl}/api/v1/feed?${qs}`, {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data: {
+          modo_eleitoral_ativo?: boolean;
+          tem_mais?: boolean;
+          noticias?: NoticiaItem[];
+        } = await res.json();
+
+        setModoEleitoral(Boolean(data.modo_eleitoral_ativo));
+        setNoticiasServidor(Array.isArray(data.noticias) ? data.noticias : []);
+        setTemMais(Boolean(data.tem_mais));
+        setUsandoFallbackLocal(false);
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") {
+          return;
+        }
+        // Fallback offline/demo quando o backend não está acessível
+        setUsandoFallbackLocal(true);
+        setTemMais(false);
+      } finally {
+        if (!controller.signal.aborted) {
+          setCarregandoFeed(false);
+        }
+      }
+    }, atrasoMs);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [busca, ufAtiva, municipioAtivo, formatoAtivo]);
+
+  const handleCarregarMais = async () => {
+    if (carregandoMais || !temMais || usandoFallbackLocal) return;
+    setCarregandoMais(true);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+      const qs = montarQueryFeed({
+        busca,
+        ufAtiva,
+        municipioAtivo,
+        formatoAtivo,
+        offset: noticiasServidor.length,
+      });
+      const res = await fetch(`${apiUrl}/api/v1/feed?${qs}`);
+      if (!res.ok) return;
+
+      const data: {
+        modo_eleitoral_ativo?: boolean;
+        tem_mais?: boolean;
+        noticias?: NoticiaItem[];
+      } = await res.json();
+
+      if (typeof data.modo_eleitoral_ativo === "boolean") {
+        setModoEleitoral(data.modo_eleitoral_ativo);
+      }
+      setTemMais(Boolean(data.tem_mais));
+
+      if (Array.isArray(data.noticias) && data.noticias.length > 0) {
+        setNoticiasServidor((prev) => {
+          const ids = new Set(prev.map((item) => item.id));
+          const novos = data.noticias!.filter((item) => !ids.has(item.id));
+          return [...prev, ...novos];
+        });
+      }
+    } catch {
+      // Mantém itens já carregados se houver falha momentânea de rede
+    } finally {
+      setCarregandoMais(false);
+    }
+  };
+
+  // Fallback local aplicado apenas se a API estiver offline
   const noticiasFiltradas = useMemo(() => {
+    if (!usandoFallbackLocal) {
+      return noticiasServidor;
+    }
+
     return noticiasIniciais.filter((n) => {
-      // 1. Filtro por formato multimídia
       if (formatoAtivo !== "TODOS" && (n.formato || "TEXTO") !== formatoAtivo) {
         return false;
       }
 
-      // 2. Filtro por município específico selecionado no mapa
       if (municipioAtivo) {
         if (n.ibge_codigo !== municipioAtivo.codigo && n.escopo !== "NACIONAL") {
           return false;
         }
-      }
-      // 3. Filtro por UF selecionada (inclui notícias estaduais da UF, municipais da UF e nacionais)
-      else if (ufAtiva) {
+      } else if (ufAtiva) {
         const codigoUfDaNoticia = n.ibge_codigo ? n.ibge_codigo.slice(0, 2) : null;
         const siglaDaNoticia =
           n.uf || (codigoUfDaNoticia ? UF_POR_CODIGO_IBGE[codigoUfDaNoticia] : null);
@@ -74,7 +215,6 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
         }
       }
 
-      // 4. Filtro por termo de busca textual
       if (busca.trim()) {
         const termo = busca.toLowerCase().trim();
         const matchTitulo = n.titulo.toLowerCase().includes(termo);
@@ -88,7 +228,7 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
 
       return true;
     });
-  }, [noticiasIniciais, formatoAtivo, municipioAtivo, ufAtiva, busca]);
+  }, [usandoFallbackLocal, noticiasServidor, noticiasIniciais, formatoAtivo, municipioAtivo, ufAtiva, busca]);
 
   return (
     <div className="space-y-6">
@@ -110,25 +250,25 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
       {/* Âncora do Mapa Brasil (#mapa) + Controle Mobile */}
       <div id="mapa" className="scroll-mt-20">
         <div className="lg:hidden">
-        <button
-          type="button"
-          onClick={() => setMapaMobileAberto(!mapaMobileAberto)}
-          className="w-full flex items-center justify-between bg-slate-900 text-white px-4 py-3 rounded-xl text-xs font-bold shadow-sm"
-        >
-          <span className="flex items-center gap-2">
-            <Map className="w-4 h-4 text-blue-400" />
-            {mapaMobileAberto
-              ? "Ocultar Mapa Cartográfico do Brasil"
-              : "Explorar Municípios no Mapa Interativo (27 UFs)"}
-          </span>
-          {mapaMobileAberto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
+          <button
+            type="button"
+            onClick={() => setMapaMobileAberto(!mapaMobileAberto)}
+            className="w-full flex items-center justify-between bg-slate-900 text-white px-4 py-3 rounded-xl text-xs font-bold shadow-sm"
+          >
+            <span className="flex items-center gap-2">
+              <Map className="w-4 h-4 text-blue-400" />
+              {mapaMobileAberto
+                ? "Ocultar Mapa Cartográfico do Brasil"
+                : "Explorar Municípios no Mapa Interativo (27 UFs)"}
+            </span>
+            {mapaMobileAberto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
 
-        {mapaMobileAberto && (
-          <div className="mt-3">
-            <MapaFederado onSelectTerritorio={handleSelectTerritorioMapa} />
-          </div>
-        )}
+          {mapaMobileAberto && (
+            <div className="mt-3">
+              <MapaFederado onSelectTerritorio={handleSelectTerritorioMapa} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -140,13 +280,13 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
             <div>
               <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <Newspaper className="w-6 h-6 text-destaque" />
-                {modoEleitoralAtivo
+                {modoEleitoral
                   ? "Feed Oficial Cronológico (Lei nº 9.504/97)"
                   : "Feed Federado em Destaque"}
               </h1>
               <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">
                 <span>
-                  {modoEleitoralAtivo
+                  {modoEleitoral
                     ? "Ordenação estritamente cronológica."
                     : "Ranqueamento orgânico auditável pelo voto de filiados."}
                 </span>
@@ -161,22 +301,39 @@ export const PortalInterativoLeitor: React.FC<PortalInterativoLeitorProps> = ({
               </div>
             </div>
 
-            <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1 rounded-full">
+            <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+              {carregandoFeed && <Loader2 className="w-3.5 h-3.5 animate-spin text-destaque" />}
               {noticiasFiltradas.length} {noticiasFiltradas.length === 1 ? "pauta" : "pautas"}
             </span>
           </div>
 
           {/* Lista de Notícias ou Estado Vazio Amigável */}
           {noticiasFiltradas.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {noticiasFiltradas.map((noticia) => (
-                <CardNoticia
-                  key={noticia.id}
-                  noticia={noticia}
-                  modoEleitoral={modoEleitoralAtivo}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {noticiasFiltradas.map((noticia) => (
+                  <CardNoticia
+                    key={noticia.id}
+                    noticia={noticia}
+                    modoEleitoral={modoEleitoral}
+                  />
+                ))}
+              </div>
+
+              {temMais && !usandoFallbackLocal && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCarregarMais}
+                    disabled={carregandoMais}
+                    className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold text-xs px-5 py-2.5 rounded-xl shadow-sm transition-colors disabled:opacity-60"
+                  >
+                    {carregandoMais && <Loader2 className="w-4 h-4 animate-spin text-destaque" />}
+                    {carregandoMais ? "Carregando mais pautas..." : "Carregar mais pautas"}
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-3">
               <FilterX className="w-10 h-10 text-slate-400 mx-auto" />

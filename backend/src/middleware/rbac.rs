@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::models::{Cargo, StatusUsuario, TipoEscopo};
 use crate::services::crypto::CryptoService;
@@ -13,9 +14,7 @@ use uuid::Uuid;
 #[derive(Clone, Debug)]
 pub struct AuthContext {
     pub usuario_id: Uuid,
-    #[allow(dead_code)]
     pub nome: String,
-    #[allow(dead_code)]
     pub email: String,
     pub cargo: Cargo,
     pub escopo: TipoEscopo,
@@ -69,20 +68,30 @@ pub fn extrair_token_cookie(headers: &HeaderMap) -> Option<String> {
     None
 }
 
-pub fn extrair_ip_cliente(headers: &HeaderMap) -> IpAddr {
-    if let Some(xff) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
-        if let Some(first) = xff.split(',').next().map(str::trim) {
-            if let Ok(ip) = first.parse::<IpAddr>() {
+pub fn extrair_ip_requisicao(
+    headers: &HeaderMap,
+    peer_ip: Option<IpAddr>,
+    trust_proxy: bool,
+) -> IpAddr {
+    if trust_proxy {
+        if let Some(xff) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+            if let Some(first) = xff.split(',').next().map(str::trim) {
+                if let Ok(ip) = first.parse::<IpAddr>() {
+                    return ip;
+                }
+            }
+        }
+        if let Some(real_ip) = headers.get("x-real-ip").and_then(|v| v.to_str().ok()) {
+            if let Ok(ip) = real_ip.trim().parse::<IpAddr>() {
                 return ip;
             }
         }
     }
-    if let Some(real_ip) = headers.get("x-real-ip").and_then(|v| v.to_str().ok()) {
-        if let Ok(ip) = real_ip.trim().parse::<IpAddr>() {
-            return ip;
-        }
-    }
-    IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
+    peer_ip.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
+}
+
+pub fn extrair_ip_cliente(headers: &HeaderMap) -> IpAddr {
+    extrair_ip_requisicao(headers, None, AppConfig::trust_proxy_from_env())
 }
 
 #[async_trait]

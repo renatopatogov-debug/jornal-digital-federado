@@ -33,7 +33,7 @@ impl HttpResponseData {
     }
 }
 
-fn config_teste(global_rpm: u32, auth_rpm: u32) -> AppConfig {
+fn config_teste(global_rpm: u32, auth_rpm: u32, trust_proxy: bool) -> AppConfig {
     AppConfig {
         host: "127.0.0.1".to_string(),
         port: 0,
@@ -51,6 +51,7 @@ fn config_teste(global_rpm: u32, auth_rpm: u32) -> AppConfig {
         ],
         cookie_secure: false,
         cookie_same_site: "Strict".to_string(),
+        trust_proxy,
         aes_previous_master_key: None,
     }
 }
@@ -62,7 +63,11 @@ async fn spawn_server(pool: PgPool, config: &AppConfig) -> SocketAddr {
     let addr = listener.local_addr().expect("local_addr válido");
     let app = build_app_router(pool, config);
     tokio::spawn(async move {
-        let _ = axum::serve(listener, app).await;
+        let _ = axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await;
     });
     addr
 }
@@ -178,7 +183,7 @@ async fn openapi_e_docs_respondem_com_especificacao_e_headers_seguranca() {
     let pool = PgPoolOptions::new()
         .connect_lazy("postgres://postgres:postgres@localhost:5432/jornal_test")
         .expect("pool lazy válido");
-    let addr = spawn_server(pool, &config_teste(120, 15)).await;
+    let addr = spawn_server(pool, &config_teste(120, 15, false)).await;
 
     let spec_resp = send_http(addr, "GET", "/api/openapi.json", &[], None).await;
     assert_eq!(spec_resp.status, StatusCode::OK.as_u16());
@@ -202,9 +207,10 @@ async fn rotas_protegidas_exigem_cookie_de_sessao() {
     let pool = PgPoolOptions::new()
         .connect_lazy("postgres://postgres:postgres@localhost:5432/jornal_test")
         .expect("pool lazy válido");
-    let addr = spawn_server(pool, &config_teste(120, 15)).await;
+    let addr = spawn_server(pool, &config_teste(120, 15, false)).await;
 
     let rotas = [
+        ("GET", "/api/v1/auth/me", None),
         ("GET", "/api/v1/auth/sessoes", None),
         ("POST", "/api/v1/auth/sessoes/revogar-todas", Some("{}")),
         (
@@ -241,7 +247,7 @@ async fn csrf_origin_nao_autorizada_bloqueada_em_post_com_cookie() {
     let pool = PgPoolOptions::new()
         .connect_lazy("postgres://postgres:postgres@localhost:5432/jornal_test")
         .expect("pool lazy válido");
-    let addr = spawn_server(pool, &config_teste(120, 15)).await;
+    let addr = spawn_server(pool, &config_teste(120, 15, false)).await;
 
     let resp = send_http(
         addr,
@@ -264,7 +270,7 @@ async fn rate_limiter_por_ip_bloqueia_rajada_com_429() {
     let pool = PgPoolOptions::new()
         .connect_lazy("postgres://postgres:postgres@localhost:5432/jornal_test")
         .expect("pool lazy válido");
-    let addr = spawn_server(pool, &config_teste(10, 3)).await;
+    let addr = spawn_server(pool, &config_teste(10, 3, true)).await;
 
     for tentativa in 1..=3 {
         let resp = send_http(
@@ -294,7 +300,7 @@ async fn rate_limiter_por_ip_bloqueia_rajada_com_429() {
     assert_eq!(bloqueada.status, StatusCode::TOO_MANY_REQUESTS.as_u16());
     assert_eq!(bloqueada.header("retry-after"), Some("60"));
 
-    // Outro IP permanece liberado
+    // Outro IP permanece liberado quando TRUST_PROXY=true
     let outro_ip = send_http(
         addr,
         "POST",
@@ -304,6 +310,60 @@ async fn rate_limiter_por_ip_bloqueia_rajada_com_429() {
     )
     .await;
     assert_eq!(outro_ip.status, StatusCode::BAD_REQUEST.as_u16());
+}
+
+#[tokio::test]
+async fn rate_limiter_ignora_xff_forjado_quando_trust_proxy_desabilitado() {
+    let pool = PgPoolOptions::new()
+        .connect_lazy("postgres://postgres:postgres@localhost:5432/jornal_test")
+        .expect("pool lazy válido");
+    let addr = spawn_server(pool, &config_teste(10, 3, false)).await;
+
+    for i in 1..=3 {
+        let xff_forjado = format!("198.51.100.{}", i);
+        let resp = send_http(
+            addr,
+            "POST",
+            "/api/v1/auth/login",
+            &[("X-Forwarded-For", &xff_forjado)],
+            Some(r#"{"email":"","senha":""}"#),
+        )
+        .await;
+        assert_eq!(resp.status, StatusCode::BAD_REQUEST.as_u16());
+    }
+
+    // 4a tentativa com X-Forwarded-For diferente ainda conta no peer_ip (127.0.0.1) e recebe 429
+    let bloqueada = send_http(
+        addr,
+        "POST",
+        "/api/v1/auth/login",
+        &[("X-Forwarded-For", "198.51.100.99")],
+        Some(r#"{"email":"","senha":""}"#),
+    )
+    .await;
+    assert_eq!(bloqueada.status, StatusCode::TOO_MANY_REQUESTS.as_u16());
+}
+
+#[tokio::test]
+async fn verify_2fa_sem_desafio_valido_retorna_401() {
+    let pool = PgPoolOptions::new()
+        .connect_lazy("postgres://postgres:postgres@localhost:5432/jornal_test")
+        .expect("pool lazy válido");
+    let addr = spawn_server(pool, &config_teste(120, 15, false)).await;
+
+    let resp = send_http(
+        addr,
+        "POST",
+        "/api/v1/auth/2fa/verify",
+        &[],
+        Some(&json!({
+            "usuario_id": Uuid::new_v4(),
+            "codigo_totp": "123456",
+            "desafio_2fa_token": "forjado:9999999999:deadbeef"
+        }).to_string()),
+    )
+    .await;
+    assert_eq!(resp.status, StatusCode::UNAUTHORIZED.as_u16());
 }
 
 #[tokio::test]
@@ -326,7 +386,7 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
         .await
         .expect("conectar PostgreSQL para teste E2E");
 
-    let addr = spawn_server(pool.clone(), &config_teste(500, 200)).await;
+    let addr = spawn_server(pool.clone(), &config_teste(500, 200, false)).await;
 
     // 1. Login SuperAdmin seedado e rotação de envelope TOTP cifrado com chave antiga
     let redator_id = Uuid::new_v4();
@@ -389,7 +449,12 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
     )
     .await;
     assert_eq!(login_redator.status, StatusCode::OK.as_u16());
-    assert_eq!(login_redator.json()["requer_2fa"].as_bool(), Some(true));
+    let login_redator_json = login_redator.json();
+    assert_eq!(login_redator_json["requer_2fa"].as_bool(), Some(true));
+    let desafio_2fa_token = login_redator_json["desafio_2fa_token"]
+        .as_str()
+        .expect("desafio_2fa_token emitido pelo login")
+        .to_string();
 
     let agora_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -402,7 +467,11 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
         "POST",
         "/api/v1/auth/2fa/verify",
         &[],
-        Some(&json!({ "usuario_id": redator_id, "codigo_totp": codigo_totp }).to_string()),
+        Some(&json!({
+            "usuario_id": redator_id,
+            "codigo_totp": codigo_totp,
+            "desafio_2fa_token": desafio_2fa_token
+        }).to_string()),
     )
     .await;
     assert_eq!(verify_resp.status, StatusCode::OK.as_u16());
@@ -411,7 +480,26 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
     assert!(set_cookie.contains("SameSite=Strict"));
     let redator_cookie = extrair_cookie_sessao(&verify_resp).expect("cookie redator válido");
 
-    // 3. Auditoria de sessões ativas
+    // 3. Consulta /auth/me e auditoria de sessões ativas (zero dependência de ID no cliente)
+    let me_resp = send_http(
+        addr,
+        "GET",
+        "/api/v1/auth/me",
+        &[("Cookie", &redator_cookie)],
+        None,
+    )
+    .await;
+    assert_eq!(me_resp.status, StatusCode::OK.as_u16());
+    let me_json = me_resp.json();
+    assert_eq!(me_json["autenticado"].as_bool(), Some(true));
+    assert_eq!(me_json["cargo_slug"].as_str(), Some("redator_municipal"));
+    assert_eq!(me_json["escopo"].as_str(), Some("MUNICIPAL"));
+    assert_eq!(me_json["ibge_codigo"].as_str(), Some("3550308"));
+    assert_eq!(
+        me_json["permissoes"]["pode_publicar_municipal"].as_bool(),
+        Some(true)
+    );
+
     let sessoes_resp = send_http(
         addr,
         "GET",
@@ -453,6 +541,31 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
 
     let detalhe_resp = send_http(addr, "GET", &format!("/api/v1/noticias/{}", slug), &[], None).await;
     assert_eq!(detalhe_resp.status, StatusCode::OK.as_u16());
+    let detalhe_json = detalhe_resp.json();
+    assert_eq!(detalhe_json["noticia"]["uf"].as_str(), Some("SP"));
+    assert_eq!(
+        detalhe_json["noticia"]["territorio_nome"].as_str(),
+        Some("São Paulo")
+    );
+
+    let feed_resp = send_http(
+        addr,
+        "GET",
+        "/api/v1/feed?uf=SP&q=Pauta%20E2E&limit=10&offset=0",
+        &[],
+        None,
+    )
+    .await;
+    assert_eq!(feed_resp.status, StatusCode::OK.as_u16());
+    let feed_json = feed_resp.json();
+    assert_eq!(feed_json["tem_mais"].as_bool(), Some(false));
+    let feed_noticias = feed_json["noticias"].as_array().expect("lista noticias no feed");
+    assert!(!feed_noticias.is_empty());
+    assert_eq!(feed_noticias[0]["uf"].as_str(), Some("SP"));
+    assert_eq!(
+        feed_noticias[0]["territorio_nome"].as_str(),
+        Some("São Paulo")
+    );
 
     // 5. Votação imutável no ledger + rejeição de voto duplicado + quórum Hype >= 10
     let voto_path = format!("/api/v1/noticias/{}/voto", noticia_id);

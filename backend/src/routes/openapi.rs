@@ -53,10 +53,11 @@ pub fn construir_especificacao_openapi() -> Value {
                 },
                 "Verify2faRequest": {
                     "type": "object",
-                    "required": ["usuario_id", "codigo_totp"],
+                    "required": ["usuario_id", "codigo_totp", "desafio_2fa_token"],
                     "properties": {
                         "usuario_id": { "type": "string", "format": "uuid" },
-                        "codigo_totp": { "type": "string", "description": "Código TOTP de 6 dígitos ou código de recuperação" }
+                        "codigo_totp": { "type": "string", "description": "Código TOTP de 6 dígitos ou código de recuperação" },
+                        "desafio_2fa_token": { "type": "string", "description": "Token HMAC temporário (5 min) emitido por /api/v1/auth/login" }
                     }
                 },
                 "CriarNoticiaRequest": {
@@ -155,9 +156,10 @@ pub fn construir_especificacao_openapi() -> Value {
                         { "name": "q", "in": "query", "schema": { "type": "string" } },
                         { "name": "formato", "in": "query", "schema": { "$ref": "#/components/schemas/TipoFormatoMateria" } },
                         { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 50 } },
-                        { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 } }
+                        { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
+                        { "name": "incluir_nacional", "in": "query", "schema": { "type": "boolean" } }
                     ],
-                    "responses": { "200": { "description": "Feed editorial e estado do Modo Eleitoral" } }
+                    "responses": { "200": { "description": "Feed editorial com paginação e estado do Modo Eleitoral" } }
                 }
             },
             "/api/v1/auth/login": {
@@ -195,6 +197,17 @@ pub fn construir_especificacao_openapi() -> Value {
                     "tags": ["Autenticação & Sessões"],
                     "summary": "Revoga a sessão corrente e limpa o cookie",
                     "responses": { "200": { "description": "Sessão encerrada" } }
+                }
+            },
+            "/api/v1/auth/me": {
+                "get": {
+                    "tags": ["Autenticação & Sessões"],
+                    "summary": "Retorna perfil, cargo RBAC, território IBGE e permissões da sessão autenticada",
+                    "security": [{ "cookieAuth": [] }],
+                    "responses": {
+                        "200": { "description": "Identidade autenticada" },
+                        "401": { "description": "Não autenticado" }
+                    }
                 }
             },
             "/api/v1/auth/sessoes": {

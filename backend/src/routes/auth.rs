@@ -1,6 +1,7 @@
 use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::middleware::rbac::{extrair_ip_cliente, extrair_token_cookie, AuthContext};
+use crate::models::{StatusUsuario, TipoEscopo};
 use crate::services::crypto::CryptoService;
 use crate::services::session::{AuditoriaEvento, SessionManager};
 use axum::{
@@ -27,6 +28,7 @@ pub struct LoginRequest {
 pub struct Verify2faRequest {
     pub usuario_id: Uuid,
     pub codigo_totp: String,
+    pub desafio_2fa_token: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -39,7 +41,39 @@ pub struct LoginResponse {
     pub sucesso: bool,
     pub requer_2fa: bool,
     pub usuario_id: Option<Uuid>,
+    pub desafio_2fa_token: Option<String>,
     pub mensagem: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MePermissoes {
+    pub pode_gerenciar_infra: bool,
+    pub pode_alterar_cargos: bool,
+    pub pode_ativar_filiados: bool,
+    pub pode_revogar_lote: bool,
+    pub pode_publicar_nacional: bool,
+    pub pode_publicar_estadual: bool,
+    pub pode_publicar_municipal: bool,
+    pub pode_solicitar_escalonamento: bool,
+    pub pode_aprovar_escalonamento: bool,
+    pub pode_votar_hype: bool,
+    pub limite_ativacao_semanal: Option<i32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MeResponse {
+    pub autenticado: bool,
+    pub usuario_id: Uuid,
+    pub nome: String,
+    pub email: String,
+    pub escopo: TipoEscopo,
+    pub ibge_codigo: Option<String>,
+    pub filiado_verificado: bool,
+    pub status: StatusUsuario,
+    pub cargo_slug: String,
+    pub cargo_nome: String,
+    pub nivel_hierarquico: i32,
+    pub permissoes: MePermissoes,
 }
 
 fn construir_cookie_sessao(token: &str, max_age_secs: i64) -> Option<HeaderValue> {
@@ -153,6 +187,12 @@ pub async fn login(
 
     // Se 2FA estiver ativo, requer etapa subsequente de desafio TOTP ou código de recuperação
     if totp_habilitado {
+        let agora = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?
+            .as_secs();
+        let desafio_2fa_token = CryptoService::emitir_token_desafio_2fa(usuario_id, agora);
+
         SessionManager::registrar_auditoria(
             &pool,
             AuditoriaEvento {
@@ -173,6 +213,7 @@ pub async fn login(
                 sucesso: true,
                 requer_2fa: true,
                 usuario_id: Some(usuario_id),
+                desafio_2fa_token: Some(desafio_2fa_token),
                 mensagem:
                     "Credencial validada. Confirme o segundo fator (TOTP ou código de recuperação)."
                         .to_string(),
@@ -202,6 +243,7 @@ pub async fn login(
             sucesso: true,
             requer_2fa: false,
             usuario_id: Some(usuario_id),
+            desafio_2fa_token: None,
             mensagem: "Login realizado e sessão HTTP-Only emitida com sucesso.".to_string(),
         }),
     ))
@@ -216,6 +258,22 @@ pub async fn verify_2fa(
     if codigo.is_empty() {
         return Err(AppError::BadRequest(
             "Informe o código TOTP de 6 dígitos ou código de recuperação.".to_string(),
+        ));
+    }
+
+    let agora = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?
+        .as_secs();
+
+    if !CryptoService::validar_token_desafio_2fa(
+        &payload.desafio_2fa_token,
+        payload.usuario_id,
+        agora,
+    ) {
+        return Err(AppError::Unauthorized(
+            "Desafio de pré-autenticação 2FA inválido ou expirado. Realize o login novamente."
+                .to_string(),
         ));
     }
 
@@ -263,10 +321,6 @@ pub async fn verify_2fa(
             let (secret, usou_chave_antiga) = crypto
                 .decifrar_com_fallback(&envelope, crypto_anterior.as_ref())
                 .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?;
-            let agora = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?
-                .as_secs();
             if CryptoService::verificar_totp_sha256(&secret, codigo, agora) {
                 verificado = true;
                 // Re-cifra preguiçosamente caso ainda estivesse sob chave mestra anterior
@@ -466,4 +520,34 @@ pub async fn revogar_todas_sessoes(
             "mensagem": "Sessões revogadas e evento registrado em auditoria."
         })),
     ))
+}
+
+/// Retorna a identidade, cargo e permissões territoriais da sessão autenticada via cookie HTTP-Only
+pub async fn me(auth: AuthContext) -> Json<MeResponse> {
+    Json(MeResponse {
+        autenticado: true,
+        usuario_id: auth.usuario_id,
+        nome: auth.nome,
+        email: auth.email,
+        escopo: auth.escopo,
+        ibge_codigo: auth.ibge_codigo,
+        filiado_verificado: auth.filiado_verificado,
+        status: auth.status,
+        cargo_slug: auth.cargo.slug,
+        cargo_nome: auth.cargo.nome,
+        nivel_hierarquico: auth.cargo.nivel_hierarquico,
+        permissoes: MePermissoes {
+            pode_gerenciar_infra: auth.cargo.pode_gerenciar_infra,
+            pode_alterar_cargos: auth.cargo.pode_alterar_cargos,
+            pode_ativar_filiados: auth.cargo.pode_ativar_filiados,
+            pode_revogar_lote: auth.cargo.pode_revogar_lote,
+            pode_publicar_nacional: auth.cargo.pode_publicar_nacional,
+            pode_publicar_estadual: auth.cargo.pode_publicar_estadual,
+            pode_publicar_municipal: auth.cargo.pode_publicar_municipal,
+            pode_solicitar_escalonamento: auth.cargo.pode_solicitar_escalonamento,
+            pode_aprovar_escalonamento: auth.cargo.pode_aprovar_escalonamento,
+            pode_votar_hype: auth.cargo.pode_votar_hype,
+            limite_ativacao_semanal: auth.cargo.limite_ativacao_semanal,
+        },
+    })
 }

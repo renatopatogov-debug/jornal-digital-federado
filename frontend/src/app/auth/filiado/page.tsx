@@ -41,10 +41,6 @@ export default function LoginFiliadoPage() {
         return;
       }
 
-      if (data.usuario_id) {
-        localStorage.setItem("jf_usuario_id", data.usuario_id);
-      }
-
       if (data.requer_2fa) {
         setErro(
           "Esta conta exige confirmação de 2º fator (2FA). Utilize o portal administrativo ou a página de login completo."

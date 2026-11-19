@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [senha, setSenha] = useState("");
   const [etapa2FA, setEtapa2FA] = useState(false);
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
+  const [desafio2faToken, setDesafio2faToken] = useState<string | null>(null);
   const [codigoTotp, setCodigoTotp] = useState("");
   const [metodo, setMetodo] = useState<"PASSKEY" | "GOOGLE_AUTH">("GOOGLE_AUTH");
   const [carregando, setCarregando] = useState(false);
@@ -32,15 +33,16 @@ export default function LoginPage() {
         sucesso?: boolean;
         requer_2fa?: boolean;
         usuario_id?: string;
+        desafio_2fa_token?: string | null;
         mensagem?: string;
       } | null = await res.json().catch(() => null);
 
       if (res.ok && data?.sucesso) {
         if (data.usuario_id) {
           setUsuarioId(data.usuario_id);
-          localStorage.setItem("jf_usuario_id", data.usuario_id);
         }
         if (data.requer_2fa) {
+          setDesafio2faToken(data.desafio_2fa_token || null);
           setEtapa2FA(true);
         } else {
           window.location.href = "/cms";
@@ -58,7 +60,7 @@ export default function LoginPage() {
   const handleValidar2FA = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
-    if (!usuarioId) {
+    if (!usuarioId || !desafio2faToken) {
       setErro("Sessão de pré-autenticação inválida. Realize o login novamente.");
       setEtapa2FA(false);
       return;
@@ -73,6 +75,7 @@ export default function LoginPage() {
         body: JSON.stringify({
           usuario_id: usuarioId,
           codigo_totp: codigoTotp.trim(),
+          desafio_2fa_token: desafio2faToken,
         }),
       });
       const data: {
@@ -86,7 +89,6 @@ export default function LoginPage() {
         return;
       }
 
-      localStorage.setItem("jf_usuario_id", data.usuario_id || usuarioId);
       window.location.href = "/cms";
     } catch {
       setErro("Erro de comunicação ao validar o código 2FA.");

@@ -36,6 +36,7 @@ pub fn build_api_router(pool: PgPool) -> Router {
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/2fa/verify", post(auth::verify_2fa))
         .route("/api/v1/auth/logout", post(auth::logout))
+        .route("/api/v1/auth/me", get(auth::me))
         .route("/api/v1/auth/sessoes", get(auth::listar_sessoes))
         .route(
             "/api/v1/auth/sessoes/revogar-todas",
@@ -90,6 +91,7 @@ pub fn build_app_router(pool: PgPool, config: &AppConfig) -> Router {
     let rate_limiter = RateLimiter::new(
         config.rate_limit_global_per_minute,
         config.rate_limit_auth_per_minute,
+        config.trust_proxy,
     );
     let security_cfg = SecurityConfig::new(config.cors_allowed_origins.clone());
 

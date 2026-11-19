@@ -1,11 +1,17 @@
 use crate::error::AppError;
-use crate::models::{ModoEleitoralConfig, Noticia, TipoEscopo, TipoFormatoMateria};
+use crate::models::{ModoEleitoralConfig, TipoEscopo, TipoFormatoMateria};
 use axum::{
     extract::{Query, State},
     Json,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use uuid::Uuid;
+
+const LIMITE_PADRAO: i64 = 20;
+const LIMITE_MAXIMO: i64 = 50;
+const OFFSET_MAXIMO: i64 = 10_000;
 
 #[derive(Debug, Deserialize)]
 pub struct FeedQueryParams {
@@ -15,6 +21,8 @@ pub struct FeedQueryParams {
     pub formato: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+    /// Quando `true`, matérias NACIONAIS continuam visíveis ao filtrar por UF/IBGE
+    pub incluir_nacional: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -22,6 +30,9 @@ pub struct FeedResponse {
     pub modo_eleitoral_ativo: bool,
     pub banner_legal: Option<String>,
     pub total_itens: usize,
+    pub limit: i64,
+    pub offset: i64,
+    pub tem_mais: bool,
     pub noticias: Vec<NoticiaFeedItem>,
 }
 
@@ -33,6 +44,8 @@ pub struct NoticiaFeedItem {
     pub subtitulo: Option<String>,
     pub escopo: TipoEscopo,
     pub ibge_codigo: Option<String>,
+    pub uf: Option<String>,
+    pub territorio_nome: Option<String>,
     pub formato: TipoFormatoMateria,
     pub video_url: Option<String>,
     pub audio_url: Option<String>,
@@ -43,6 +56,47 @@ pub struct NoticiaFeedItem {
     pub votos_positivos: i32,
     pub votos_negativos: i32,
     pub hype_score: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct FeedRow {
+    id: Uuid,
+    titulo: String,
+    slug: String,
+    subtitulo: Option<String>,
+    escopo: TipoEscopo,
+    ibge_codigo: Option<String>,
+    uf: Option<String>,
+    territorio_nome: Option<String>,
+    formato: TipoFormatoMateria,
+    video_url: Option<String>,
+    audio_url: Option<String>,
+    pdf_edicao_url: Option<String>,
+    conteudo_sanitizado: String,
+    imagem_destaque_url: Option<String>,
+    votos_positivos: i32,
+    votos_negativos: i32,
+    hype_score: f64,
+    publicado_em: Option<DateTime<Utc>>,
+}
+
+/// Escapa curingas do ILIKE (`\`, `%`, `_`) para que a busca textual seja literal
+fn escapar_termo_like(termo: &str) -> String {
+    let mut out = String::with_capacity(termo.len() + 2);
+    for c in termo.chars() {
+        if matches!(c, '\\' | '%' | '_') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
+}
+
+fn normalizar_filtro(valor: Option<&String>) -> Option<String> {
+    valor
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
 }
 
 pub async fn get_feed(
@@ -68,65 +122,63 @@ pub async fn get_feed(
         }
     }
 
-    let limit = params.limit.unwrap_or(20).clamp(1, 50);
-    let offset = params.offset.unwrap_or(0).max(0);
-    let termo_busca = params
-        .q
-        .as_ref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| format!("%{}%", s));
+    let limit = params.limit.unwrap_or(LIMITE_PADRAO).clamp(1, LIMITE_MAXIMO);
+    let offset = params.offset.unwrap_or(0).clamp(0, OFFSET_MAXIMO);
+    let ibge = normalizar_filtro(params.ibge.as_ref());
+    let uf = normalizar_filtro(params.uf.as_ref());
+    let formato = normalizar_filtro(params.formato.as_ref());
+    let termo_busca = normalizar_filtro(params.q.as_ref())
+        .map(|s| format!("%{}%", escapar_termo_like(&s)));
+    let incluir_nacional = params.incluir_nacional.unwrap_or(false);
 
-    // 2. Consulta parametrizada com filtros combinados (IBGE, UF, Busca Textual e Formato)
-    let query_str = if modo_eleitoral_ativo {
-        r#"
-        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.autor_id, n.escopo,
-               n.ibge_codigo, n.formato, n.video_url, n.audio_url,
-               n.audio_duracao_segundos, n.pdf_edicao_url, n.pdf_numero_paginas,
-               n.conteudo_sanitizado, n.imagem_destaque_url,
-               n.status, n.votos_positivos, n.votos_negativos,
-               n.hype_score::float8 as hype_score, n.publicado_em, n.criado_em
-        FROM noticias n
-        LEFT JOIN territorios t ON n.ibge_codigo = t.codigo_ibge
-        WHERE n.status = 'PUBLICADO'
-          AND ($1::text IS NULL OR n.ibge_codigo = $1)
-          AND ($2::text IS NULL OR UPPER(t.uf) = UPPER($2))
-          AND ($3::text IS NULL OR n.titulo ILIKE $3 OR COALESCE(n.subtitulo, '') ILIKE $3)
-          AND ($4::text IS NULL OR n.formato::text = UPPER($4))
-        ORDER BY n.publicado_em DESC NULLS LAST, n.criado_em DESC
-        LIMIT $5 OFFSET $6
-        "#
+    // 2. Ordenação comutável pelo Modo Eleitoral (ADR D6)
+    let ordenacao = if modo_eleitoral_ativo {
+        "n.publicado_em DESC NULLS LAST, n.criado_em DESC"
     } else {
-        r#"
-        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.autor_id, n.escopo,
-               n.ibge_codigo, n.formato, n.video_url, n.audio_url,
-               n.audio_duracao_segundos, n.pdf_edicao_url, n.pdf_numero_paginas,
-               n.conteudo_sanitizado, n.imagem_destaque_url,
-               n.status, n.votos_positivos, n.votos_negativos,
-               n.hype_score::float8 as hype_score, n.publicado_em, n.criado_em
-        FROM noticias n
-        LEFT JOIN territorios t ON n.ibge_codigo = t.codigo_ibge
-        WHERE n.status = 'PUBLICADO'
-          AND ($1::text IS NULL OR n.ibge_codigo = $1)
-          AND ($2::text IS NULL OR UPPER(t.uf) = UPPER($2))
-          AND ($3::text IS NULL OR n.titulo ILIKE $3 OR COALESCE(n.subtitulo, '') ILIKE $3)
-          AND ($4::text IS NULL OR n.formato::text = UPPER($4))
-        ORDER BY n.hype_score DESC, n.publicado_em DESC NULLS LAST, n.criado_em DESC
-        LIMIT $5 OFFSET $6
-        "#
+        "n.hype_score DESC, n.publicado_em DESC NULLS LAST, n.criado_em DESC"
     };
 
-    let noticias_db = sqlx::query_as::<_, Noticia>(query_str)
-        .bind(params.ibge.as_deref())
-        .bind(params.uf.as_deref())
+    // 3. Consulta parametrizada com filtros combinados (IBGE, UF, Busca Textual e Formato)
+    //    e enriquecimento territorial (UF + nome oficial) via tabela territorios
+    let sql = format!(
+        r#"
+        SELECT n.id, n.titulo, n.slug, n.subtitulo, n.escopo,
+               n.ibge_codigo, t.uf::text AS uf, t.nome AS territorio_nome,
+               n.formato, n.video_url, n.audio_url, n.pdf_edicao_url,
+               n.conteudo_sanitizado, n.imagem_destaque_url,
+               n.votos_positivos, n.votos_negativos,
+               n.hype_score::float8 AS hype_score, n.publicado_em
+        FROM noticias n
+        LEFT JOIN territorios t ON n.ibge_codigo = t.codigo_ibge
+        WHERE n.status = 'PUBLICADO'
+          AND ($1::text IS NULL OR n.ibge_codigo = $1 OR ($7::bool AND n.escopo = 'NACIONAL'))
+          AND ($2::text IS NULL OR UPPER(t.uf) = UPPER($2) OR ($7::bool AND n.escopo = 'NACIONAL'))
+          AND ($3::text IS NULL OR n.titulo ILIKE $3 OR COALESCE(n.subtitulo, '') ILIKE $3
+               OR COALESCE(t.nome, '') ILIKE $3)
+          AND ($4::text IS NULL OR n.formato::text = UPPER($4))
+        ORDER BY {}
+        LIMIT $5 OFFSET $6
+        "#,
+        ordenacao
+    );
+
+    // Busca limit + 1 para sinalizar se existe próxima página sem COUNT(*) adicional
+    let mut linhas = sqlx::query_as::<_, FeedRow>(&sql)
+        .bind(ibge.as_deref())
+        .bind(uf.as_deref())
         .bind(termo_busca.as_deref())
-        .bind(params.formato.as_deref())
-        .bind(limit)
+        .bind(formato.as_deref())
+        .bind(limit + 1)
         .bind(offset)
+        .bind(incluir_nacional)
         .fetch_all(&pool)
         .await?;
 
-    let feed_items: Vec<NoticiaFeedItem> = noticias_db
+    let limite_usize = usize::try_from(limit).unwrap_or(20);
+    let tem_mais = linhas.len() > limite_usize;
+    linhas.truncate(limite_usize);
+
+    let feed_items: Vec<NoticiaFeedItem> = linhas
         .into_iter()
         .map(|n| NoticiaFeedItem {
             id: n.id.to_string(),
@@ -135,6 +187,8 @@ pub async fn get_feed(
             subtitulo: n.subtitulo,
             escopo: n.escopo,
             ibge_codigo: n.ibge_codigo,
+            uf: n.uf,
+            territorio_nome: n.territorio_nome,
             formato: n.formato,
             video_url: n.video_url,
             audio_url: n.audio_url,
@@ -152,12 +206,33 @@ pub async fn get_feed(
         })
         .collect();
 
-    let total = feed_items.len();
-
     Ok(Json(FeedResponse {
         modo_eleitoral_ativo,
         banner_legal: banner_texto,
-        total_itens: total,
+        total_itens: feed_items.len(),
+        limit,
+        offset,
+        tem_mais,
         noticias: feed_items,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{escapar_termo_like, normalizar_filtro};
+
+    #[test]
+    fn busca_textual_escapa_curingas_do_ilike() {
+        assert_eq!(escapar_termo_like("São Paulo"), "São Paulo");
+        assert_eq!(escapar_termo_like("100%"), "100\\%");
+        assert_eq!(escapar_termo_like("a_b"), "a\\_b");
+        assert_eq!(escapar_termo_like("c:\\x"), "c:\\\\x");
+    }
+
+    #[test]
+    fn filtros_vazios_sao_ignorados() {
+        assert_eq!(normalizar_filtro(Some(&"   ".to_string())), None);
+        assert_eq!(normalizar_filtro(Some(&" SP ".to_string())), Some("SP".to_string()));
+        assert_eq!(normalizar_filtro(None), None);
+    }
 }
