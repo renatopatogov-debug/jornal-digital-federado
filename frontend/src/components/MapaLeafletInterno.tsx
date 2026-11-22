@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import L from "leaflet";
 import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
 
-type GeoJsonPayload = NonNullable<Parameters<typeof L.geoJSON>[0]>;
+type GeoJsonPayload = React.ComponentProps<typeof GeoJSON>["data"];
 
 interface ControladorCameraProps {
   ufSelecionada: string | null;
