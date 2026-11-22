@@ -16,7 +16,7 @@ jobs:
     name: Code Quality & Linting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Instalar Rust Toolchain
         uses: dtolnay/rust-toolchain@1.99.0
@@ -24,7 +24,7 @@ jobs:
           components: clippy, rustfmt
 
       - name: Cache Cargo (Dependências e Build Rust)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -71,7 +71,7 @@ jobs:
           - 6379:6379
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Executar Migrações DDL e Seeds Fundacionais
         run: |
@@ -89,7 +89,7 @@ jobs:
         uses: dtolnay/rust-toolchain@1.99.0
 
       - name: Cache Cargo (E2E PostgreSQL)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -110,10 +110,10 @@ jobs:
     name: GeoJSON IBGE Integrity Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configurar Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -124,15 +124,16 @@ jobs:
     name: Frontend Build & TypeScript Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configurar Node.js 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
+          package-manager-cache: false
 
       - name: Cache Dependências npm e Next.js
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.npm
