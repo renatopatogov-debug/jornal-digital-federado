@@ -1,148 +1,122 @@
 use axum::{response::Html, Json};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
-/// Especificação OpenAPI 3.0.3 da Core API do Jornal Digital Federado
-pub fn construir_especificacao_openapi() -> Value {
+fn openapi_schemas() -> Value {
     json!({
-        "openapi": "3.0.3",
-        "info": {
-            "title": "Jornal Digital Federado — Core API",
-            "version": "2.1.0",
-            "description": "API editorial federada com RBAC territorial IBGE (9 cargos), ledger eleitoral imutável (ADRs D1/D2), sanitização XSS estrita via Ammonia (ADR D8), Modo Eleitoral (Lei nº 9.504/97) e rotação de chaves AES-256-GCM."
-        },
-        "servers": [
-            { "url": "/", "description": "Instância ativa" }
-        ],
-        "tags": [
-            { "name": "Observabilidade", "description": "Saúde, métricas Prometheus e especificação OpenAPI" },
-            { "name": "Feed Público", "description": "Leitura pública federada com suporte ao Modo Eleitoral" },
-            { "name": "Autenticação & Sessões", "description": "Login, desafio 2FA TOTP/recuperação, cookies HTTP-Only e auditoria" },
-            { "name": "Redação & Editorial", "description": "Preview Ammonia, publicação territorial e escalonamento" },
-            { "name": "Votação Hype", "description": "Ledger imutável auditável de votos de filiados" },
-            { "name": "Governança & Infraestrutura", "description": "Ativação de filiados, revogação em lote e rotação de chaves AES-256-GCM" }
-        ],
-        "components": {
-            "securitySchemes": {
-                "cookieAuth": {
-                    "type": "apiKey",
-                    "in": "cookie",
-                    "name": "__Host-jornal_session",
-                    "description": "Cookie HTTP-Only de sessão (em desenvolvimento sem TLS: jornal_session)."
-                }
-            },
-            "schemas": {
-                "TipoEscopo": { "type": "string", "enum": ["NACIONAL", "ESTADUAL", "MUNICIPAL"] },
-                "StatusNoticia": { "type": "string", "enum": ["RASCUNHO", "EM_REVISAO", "PUBLICADO", "ARQUIVADO", "REJEITADO"] },
-                "StatusEscalonamento": { "type": "string", "enum": ["PENDENTE", "APROVADO", "REJEITADO"] },
-                "TipoFormatoMateria": { "type": "string", "enum": ["TEXTO", "VIDEO", "AUDIO", "IMPRESSO_PDF"] },
-                "ErrorResponse": {
-                    "type": "object",
-                    "required": ["erro", "mensagem", "status_code"],
-                    "properties": {
-                        "erro": { "type": "boolean" },
-                        "mensagem": { "type": "string" },
-                        "status_code": { "type": "integer" }
-                    }
-                },
-                "LoginRequest": {
-                    "type": "object",
-                    "required": ["email", "senha"],
-                    "properties": {
-                        "email": { "type": "string", "format": "email" },
-                        "senha": { "type": "string", "format": "password" }
-                    }
-                },
-                "Verify2faRequest": {
-                    "type": "object",
-                    "required": ["usuario_id", "codigo_totp", "desafio_2fa_token"],
-                    "properties": {
-                        "usuario_id": { "type": "string", "format": "uuid" },
-                        "codigo_totp": { "type": "string", "description": "Código TOTP de 6 dígitos ou código de recuperação" },
-                        "desafio_2fa_token": { "type": "string", "description": "Token HMAC temporário (5 min) emitido por /api/v1/auth/login" }
-                    }
-                },
-                "CriarNoticiaRequest": {
-                    "type": "object",
-                    "required": ["titulo", "escopo", "conteudo_html"],
-                    "properties": {
-                        "titulo": { "type": "string", "minLength": 5 },
-                        "subtitulo": { "type": "string", "nullable": true },
-                        "escopo": { "$ref": "#/components/schemas/TipoEscopo" },
-                        "ibge_codigo": { "type": "string", "nullable": true },
-                        "formato": { "$ref": "#/components/schemas/TipoFormatoMateria" },
-                        "video_url": { "type": "string", "nullable": true },
-                        "audio_url": { "type": "string", "nullable": true },
-                        "pdf_edicao_url": { "type": "string", "nullable": true },
-                        "conteudo_html": { "type": "string" },
-                        "imagem_destaque_url": { "type": "string", "nullable": true },
-                        "publicar_agora": { "type": "boolean" }
-                    }
-                },
-                "SolicitarEscalonamentoRequest": {
-                    "type": "object",
-                    "required": ["escopo_origem", "escopo_destino", "justificativa"],
-                    "properties": {
-                        "escopo_origem": { "$ref": "#/components/schemas/TipoEscopo" },
-                        "escopo_destino": { "$ref": "#/components/schemas/TipoEscopo" },
-                        "justificativa": { "type": "string" }
-                    }
-                },
-                "SubmeterVotoRequest": {
-                    "type": "object",
-                    "required": ["tipo_voto"],
-                    "properties": {
-                        "tipo_voto": { "type": "integer", "enum": [-1, 1] }
-                    }
-                },
-                "AtivarFiliadoRequest": {
-                    "type": "object",
-                    "properties": {
-                        "filiado_id": { "type": "string", "format": "uuid", "nullable": true },
-                        "email": { "type": "string", "format": "email", "nullable": true }
-                    }
-                },
-                "RevogarLoteRequest": {
-                    "type": "object",
-                    "required": ["motivo"],
-                    "properties": {
-                        "lider_dissidente_id": { "type": "string", "format": "uuid", "nullable": true },
-                        "lider_dissidente_email": { "type": "string", "format": "email", "nullable": true },
-                        "motivo": { "type": "string", "minLength": 5 }
-                    }
-                },
-                "RotacionarChavesRequest": {
-                    "type": "object",
-                    "properties": {
-                        "chave_anterior": { "type": "string", "nullable": true }
-                    }
-                },
-                "Confirmar2faRequest": {
-                    "type": "object",
-                    "required": ["codigo_totp"],
-                    "properties": {
-                        "codigo_totp": { "type": "string", "minLength": 6, "maxLength": 6 }
-                    }
-                },
-                "AvaliarEscalonamentoRequest": {
-                    "type": "object",
-                    "required": ["aprovado"],
-                    "properties": {
-                        "aprovado": { "type": "boolean" },
-                        "parecer_revisao": { "type": "string", "nullable": true }
-                    }
-                },
-                "AtualizarModoEleitoralRequest": {
-                    "type": "object",
-                    "required": ["ativo", "motivo"],
-                    "properties": {
-                        "ativo": { "type": "boolean" },
-                        "motivo": { "type": "string", "minLength": 5 },
-                        "banner_texto": { "type": "string", "nullable": true }
-                    }
-                }
+        "TipoEscopo": { "type": "string", "enum": ["NACIONAL", "ESTADUAL", "MUNICIPAL"] },
+        "StatusNoticia": { "type": "string", "enum": ["RASCUNHO", "EM_REVISAO", "PUBLICADO", "ARQUIVADO", "REJEITADO"] },
+        "StatusEscalonamento": { "type": "string", "enum": ["PENDENTE", "APROVADO", "REJEITADO"] },
+        "TipoFormatoMateria": { "type": "string", "enum": ["TEXTO", "VIDEO", "AUDIO", "IMPRESSO_PDF"] },
+        "ErrorResponse": {
+            "type": "object",
+            "required": ["erro", "mensagem", "status_code"],
+            "properties": {
+                "erro": { "type": "boolean" },
+                "mensagem": { "type": "string" },
+                "status_code": { "type": "integer" }
             }
         },
-        "paths": {
+        "LoginRequest": {
+            "type": "object",
+            "required": ["email", "senha"],
+            "properties": {
+                "email": { "type": "string", "format": "email" },
+                "senha": { "type": "string", "format": "password" }
+            }
+        },
+        "Verify2faRequest": {
+            "type": "object",
+            "required": ["usuario_id", "codigo_totp", "desafio_2fa_token"],
+            "properties": {
+                "usuario_id": { "type": "string", "format": "uuid" },
+                "codigo_totp": { "type": "string", "description": "Código TOTP de 6 dígitos ou código de recuperação" },
+                "desafio_2fa_token": { "type": "string", "description": "Token HMAC temporário (5 min) emitido por /api/v1/auth/login" }
+            }
+        },
+        "CriarNoticiaRequest": {
+            "type": "object",
+            "required": ["titulo", "escopo", "conteudo_html"],
+            "properties": {
+                "titulo": { "type": "string", "minLength": 5 },
+                "subtitulo": { "type": "string", "nullable": true },
+                "escopo": { "$ref": "#/components/schemas/TipoEscopo" },
+                "ibge_codigo": { "type": "string", "nullable": true },
+                "formato": { "$ref": "#/components/schemas/TipoFormatoMateria" },
+                "video_url": { "type": "string", "nullable": true },
+                "audio_url": { "type": "string", "nullable": true },
+                "pdf_edicao_url": { "type": "string", "nullable": true },
+                "conteudo_html": { "type": "string" },
+                "imagem_destaque_url": { "type": "string", "nullable": true },
+                "publicar_agora": { "type": "boolean" }
+            }
+        },
+        "SolicitarEscalonamentoRequest": {
+            "type": "object",
+            "required": ["escopo_origem", "escopo_destino", "justificativa"],
+            "properties": {
+                "escopo_origem": { "$ref": "#/components/schemas/TipoEscopo" },
+                "escopo_destino": { "$ref": "#/components/schemas/TipoEscopo" },
+                "justificativa": { "type": "string" }
+            }
+        },
+        "SubmeterVotoRequest": {
+            "type": "object",
+            "required": ["tipo_voto"],
+            "properties": {
+                "tipo_voto": { "type": "integer", "enum": [-1, 1] }
+            }
+        },
+        "AtivarFiliadoRequest": {
+            "type": "object",
+            "properties": {
+                "filiado_id": { "type": "string", "format": "uuid", "nullable": true },
+                "email": { "type": "string", "format": "email", "nullable": true }
+            }
+        },
+        "RevogarLoteRequest": {
+            "type": "object",
+            "required": ["motivo"],
+            "properties": {
+                "lider_dissidente_id": { "type": "string", "format": "uuid", "nullable": true },
+                "lider_dissidente_email": { "type": "string", "format": "email", "nullable": true },
+                "motivo": { "type": "string", "minLength": 5 }
+            }
+        },
+        "RotacionarChavesRequest": {
+            "type": "object",
+            "properties": {
+                "chave_anterior": { "type": "string", "nullable": true }
+            }
+        },
+        "Confirmar2faRequest": {
+            "type": "object",
+            "required": ["codigo_totp"],
+            "properties": {
+                "codigo_totp": { "type": "string", "minLength": 6, "maxLength": 6 }
+            }
+        },
+        "AvaliarEscalonamentoRequest": {
+            "type": "object",
+            "required": ["aprovado"],
+            "properties": {
+                "aprovado": { "type": "boolean" },
+                "parecer_revisao": { "type": "string", "nullable": true }
+            }
+        },
+        "AtualizarModoEleitoralRequest": {
+            "type": "object",
+            "required": ["ativo", "motivo"],
+            "properties": {
+                "ativo": { "type": "boolean" },
+                "motivo": { "type": "string", "minLength": 5 },
+                "banner_texto": { "type": "string", "nullable": true }
+            }
+        }
+    })
+}
+
+fn openapi_paths_publico_auth() -> Value {
+    json!({
             "/health": {
                 "get": {
                     "tags": ["Observabilidade"],
@@ -295,7 +269,12 @@ pub fn construir_especificacao_openapi() -> Value {
                         "401": { "description": "Não autenticado" }
                     }
                 }
-            },
+            }
+    })
+}
+
+fn openapi_paths_editorial_infra() -> Value {
+    json!({
             "/api/v1/noticias": {
                 "post": {
                     "tags": ["Redação & Editorial"],
@@ -515,7 +494,49 @@ pub fn construir_especificacao_openapi() -> Value {
                     }
                 }
             }
-        }
+    })
+}
+
+/// Especificação OpenAPI 3.0.3 da Core API do Jornal Digital Federado
+pub fn construir_especificacao_openapi() -> Value {
+    let mut paths = Map::new();
+    if let Value::Object(m) = openapi_paths_publico_auth() {
+        paths.extend(m);
+    }
+    if let Value::Object(m) = openapi_paths_editorial_infra() {
+        paths.extend(m);
+    }
+
+    json!({
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Jornal Digital Federado — Core API",
+            "version": "2.1.0",
+            "description": "API editorial federada com RBAC territorial IBGE (9 cargos), ledger eleitoral imutável (ADRs D1/D2), sanitização XSS estrita via Ammonia (ADR D8), Modo Eleitoral (Lei nº 9.504/97) e rotação de chaves AES-256-GCM."
+        },
+        "servers": [
+            { "url": "/", "description": "Instância ativa" }
+        ],
+        "tags": [
+            { "name": "Observabilidade", "description": "Saúde, métricas Prometheus e especificação OpenAPI" },
+            { "name": "Feed Público", "description": "Leitura pública federada com suporte ao Modo Eleitoral" },
+            { "name": "Autenticação & Sessões", "description": "Login, desafio 2FA TOTP/recuperação, cookies HTTP-Only e auditoria" },
+            { "name": "Redação & Editorial", "description": "Preview Ammonia, publicação territorial e escalonamento" },
+            { "name": "Votação Hype", "description": "Ledger imutável auditável de votos de filiados" },
+            { "name": "Governança & Infraestrutura", "description": "Ativação de filiados, revogação em lote e rotação de chaves AES-256-GCM" }
+        ],
+        "components": {
+            "securitySchemes": {
+                "cookieAuth": {
+                    "type": "apiKey",
+                    "in": "cookie",
+                    "name": "__Host-jornal_session",
+                    "description": "Cookie HTTP-Only de sessão (em desenvolvimento sem TLS: jornal_session)."
+                }
+            },
+            "schemas": openapi_schemas()
+        },
+        "paths": Value::Object(paths)
     })
 }
 
