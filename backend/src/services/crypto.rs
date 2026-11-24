@@ -279,7 +279,9 @@ impl CryptoService {
         rand::thread_rng().fill_bytes(&mut random_bytes);
 
         random_bytes
-            .chunks_exact(8)
+            .as_chunks::<8>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut code = String::with_capacity(9);
                 for (idx, &b) in chunk.iter().enumerate() {
