@@ -41,6 +41,15 @@ pub enum TipoFormatoMateria {
     ImpressoPdf,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, sqlx::Type)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[sqlx(type_name = "status_escalonamento", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StatusEscalonamento {
+    Pendente,
+    Aprovado,
+    Rejeitado,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Territorio {

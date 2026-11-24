@@ -20,6 +20,7 @@ export interface SessaoUsuario {
   escopo: "NACIONAL" | "ESTADUAL" | "MUNICIPAL";
   ibge_codigo?: string | null;
   filiado_verificado: boolean;
+  totp_habilitado?: boolean;
   status: "ATIVO" | "SUSPENSO" | "PENDENTE";
   cargo_slug: string;
   cargo_nome: string;

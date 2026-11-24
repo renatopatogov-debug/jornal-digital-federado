@@ -107,6 +107,10 @@ impl HypeWorker {
         .execute(pool)
         .await?;
 
+        crate::services::redis_cache::RedisService::global()
+            .invalidar_cache_feed()
+            .await;
+
         // 4. Registro de auditoria caso o recálculo tenha ocorrido em modo silencioso
         if modo_eleitoral_ativo {
             let _ = sqlx::query(

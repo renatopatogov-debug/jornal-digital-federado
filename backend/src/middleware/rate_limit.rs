@@ -1,4 +1,5 @@
 use crate::middleware::rbac::extrair_ip_requisicao;
+use crate::services::redis_cache::RedisService;
 use axum::{
     extract::{ConnectInfo, Request, State},
     http::{header, HeaderValue, StatusCode},
@@ -10,7 +11,7 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
 #[derive(Clone, Debug)]
@@ -25,27 +26,56 @@ pub struct RateLimiter {
     auth_limit: u32,
     trust_proxy: bool,
     window: Duration,
+    redis: RedisService,
     buckets: Arc<Mutex<HashMap<(IpAddr, bool), WindowBucket>>>,
 }
 
 impl RateLimiter {
     pub fn new(global_limit: u32, auth_limit: u32, trust_proxy: bool) -> Self {
+        Self::new_with_redis(global_limit, auth_limit, trust_proxy, None)
+    }
+
+    pub fn new_with_redis(
+        global_limit: u32,
+        auth_limit: u32,
+        trust_proxy: bool,
+        redis_url: Option<&str>,
+    ) -> Self {
+        let redis = match redis_url.map(str::trim).filter(|s| !s.is_empty()) {
+            Some(url) => RedisService::from_url(url),
+            None => RedisService::disabled(),
+        };
         Self {
             global_limit: global_limit.max(1),
             auth_limit: auth_limit.max(1),
             trust_proxy,
             window: Duration::from_secs(60),
+            redis,
             buckets: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     async fn check(&self, ip: IpAddr, is_auth_route: bool) -> bool {
-        let now = Instant::now();
         let limit = if is_auth_route {
             self.auth_limit
         } else {
             self.global_limit
         };
+
+        // Tenta rate-limiting distribuído no Redis 7 (multi-réplica) com fallback transparente em memória
+        if self.redis.is_configured() {
+            let minute_slot = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs() / 60)
+                .unwrap_or(0);
+            let escopo = if is_auth_route { "auth" } else { "global" };
+            let key = format!("jornal:rl:{}:{}:{}", escopo, ip, minute_slot);
+            if let Some(current_count) = self.redis.incr_window(&key, 65).await {
+                return current_count <= u64::from(limit);
+            }
+        }
+
+        let now = Instant::now();
 
         let mut map = self.buckets.lock().await;
         if map.len() > 4096 {

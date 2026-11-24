@@ -38,13 +38,14 @@ fn config_teste(global_rpm: u32, auth_rpm: u32, trust_proxy: bool) -> AppConfig 
         host: "127.0.0.1".to_string(),
         port: 0,
         database_url: "postgres://postgres:postgres@localhost:5432/jornal_test".to_string(),
-        redis_url: "redis://127.0.0.1:6379".to_string(),
+        redis_url: String::new(),
         database_max_connections: 5,
         modo_eleitoral_default: false,
         max_ativacao_semanal_lider_municipal: 50,
         rate_limit_votos_por_minuto: 10,
         rate_limit_global_per_minute: global_rpm,
         rate_limit_auth_per_minute: auth_rpm,
+        feed_cache_ttl_seconds: 20,
         cors_allowed_origins: vec![
             "http://localhost:3000".to_string(),
             "http://127.0.0.1:3000".to_string(),
@@ -178,6 +179,26 @@ fn extrair_cookie_sessao(resp: &HttpResponseData) -> Option<String> {
         .filter(|c| c.starts_with("jornal_session=") || c.starts_with("__Host-jornal_session="))
 }
 
+fn decodificar_base32_teste(s: &str) -> Vec<u8> {
+    let mut buffer: u32 = 0;
+    let mut bits_left: u8 = 0;
+    let mut out = Vec::new();
+    for ch in s.bytes() {
+        let val = match ch {
+            b'A'..=b'Z' => ch - b'A',
+            b'2'..=b'7' => ch - b'2' + 26,
+            _ => continue,
+        };
+        buffer = (buffer << 5) | u32::from(val);
+        bits_left += 5;
+        if bits_left >= 8 {
+            bits_left -= 8;
+            out.push(((buffer >> bits_left) & 0xff) as u8);
+        }
+    }
+    out
+}
+
 #[tokio::test]
 async fn openapi_e_docs_respondem_com_especificacao_e_headers_seguranca() {
     let pool = PgPoolOptions::new()
@@ -193,9 +214,16 @@ async fn openapi_e_docs_respondem_com_especificacao_e_headers_seguranca() {
     let spec = spec_resp.json();
     assert_eq!(spec["openapi"].as_str(), Some("3.0.3"));
     assert!(spec["paths"]["/api/v1/auth/login"].is_object());
+    assert!(spec["paths"]["/api/v1/auth/2fa/setup"].is_object());
+    assert!(spec["paths"]["/api/v1/auth/2fa/confirmar"].is_object());
     assert!(spec["paths"]["/api/v1/auth/sessoes"].is_object());
+    assert!(spec["paths"]["/api/v1/noticias/acervo"].is_object());
+    assert!(spec["paths"]["/api/v1/escalonamentos"].is_object());
+    assert!(spec["paths"]["/api/v1/escalonamentos/{id}/avaliar"].is_object());
     assert!(spec["paths"]["/api/v1/noticias/{id}/voto"].is_object());
     assert!(spec["paths"]["/api/v1/infra/rotacionar-chaves-totp"].is_object());
+    assert!(spec["paths"]["/api/v1/infra/modo-eleitoral"].is_object());
+    assert!(spec["paths"]["/api/v1/infra/auditoria"].is_object());
 
     let docs_resp = send_http(addr, "GET", "/api/docs", &[], None).await;
     assert_eq!(docs_resp.status, StatusCode::OK.as_u16());
@@ -212,17 +240,37 @@ async fn rotas_protegidas_exigem_cookie_de_sessao() {
     let rotas = [
         ("GET", "/api/v1/auth/me", None),
         ("GET", "/api/v1/auth/sessoes", None),
+        ("POST", "/api/v1/auth/2fa/setup", None),
+        (
+            "POST",
+            "/api/v1/auth/2fa/confirmar",
+            Some(r#"{"codigo_totp":"123456"}"#),
+        ),
         ("POST", "/api/v1/auth/sessoes/revogar-todas", Some("{}")),
+        ("GET", "/api/v1/noticias/acervo", None),
         (
             "POST",
             "/api/v1/noticias/preview-sanitizado",
             Some(r#"{"conteudo_html":"<p>oi</p>"}"#),
+        ),
+        ("GET", "/api/v1/escalonamentos", None),
+        (
+            "POST",
+            "/api/v1/escalonamentos/00000000-0000-0000-0000-000000000001/avaliar",
+            Some(r#"{"aprovado":true}"#),
         ),
         (
             "POST",
             "/api/v1/infra/rotacionar-chaves-totp",
             Some("{}"),
         ),
+        ("GET", "/api/v1/infra/modo-eleitoral", None),
+        (
+            "POST",
+            "/api/v1/infra/modo-eleitoral",
+            Some(r#"{"ativo":true,"motivo":"Teste"}"#),
+        ),
+        ("GET", "/api/v1/infra/auditoria", None),
         ("POST", "/api/v1/usuarios/ativar", Some("{}")),
     ];
 
@@ -386,7 +434,19 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
         .await
         .expect("conectar PostgreSQL para teste E2E");
 
-    let addr = spawn_server(pool.clone(), &config_teste(500, 200, false)).await;
+    let mut e2e_cfg = config_teste(500, 200, false);
+    e2e_cfg.redis_url = std::env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let addr = spawn_server(pool.clone(), &e2e_cfg).await;
+
+    // 0. Healthcheck e Métricas validam conexão ativa com PostgreSQL 16 + Redis 7
+    let health_resp = send_http(addr, "GET", "/health", &[], None).await;
+    assert_eq!(health_resp.status, StatusCode::OK.as_u16());
+    assert_eq!(health_resp.json()["redis_conectado"].as_bool(), Some(true));
+
+    let metrics_resp = send_http(addr, "GET", "/metrics", &[], None).await;
+    assert_eq!(metrics_resp.status, StatusCode::OK.as_u16());
+    assert!(metrics_resp.body.contains("jornal_redis_up 1"));
 
     // 1. Login SuperAdmin seedado e rotação de envelope TOTP cifrado com chave antiga
     let redator_id = Uuid::new_v4();
@@ -492,6 +552,7 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
     assert_eq!(me_resp.status, StatusCode::OK.as_u16());
     let me_json = me_resp.json();
     assert_eq!(me_json["autenticado"].as_bool(), Some(true));
+    assert_eq!(me_json["totp_habilitado"].as_bool(), Some(true));
     assert_eq!(me_json["cargo_slug"].as_str(), Some("redator_municipal"));
     assert_eq!(me_json["escopo"].as_str(), Some("MUNICIPAL"));
     assert_eq!(me_json["ibge_codigo"].as_str(), Some("3550308"));
@@ -557,6 +618,18 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
     )
     .await;
     assert_eq!(feed_resp.status, StatusCode::OK.as_u16());
+    assert_eq!(feed_resp.header("x-cache"), Some("MISS"));
+
+    let feed_hit_resp = send_http(
+        addr,
+        "GET",
+        "/api/v1/feed?uf=SP&q=Pauta%20E2E&limit=10&offset=0",
+        &[],
+        None,
+    )
+    .await;
+    assert_eq!(feed_hit_resp.status, StatusCode::OK.as_u16());
+    assert_eq!(feed_hit_resp.header("x-cache"), Some("HIT"));
     let feed_json = feed_resp.json();
     assert_eq!(feed_json["tem_mais"].as_bool(), Some(false));
     let feed_noticias = feed_json["noticias"].as_array().expect("lista noticias no feed");
@@ -641,7 +714,197 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
         "Hype Score deve ficar > 0 após atingir quórum de 10 votos"
     );
 
-    // 6. Revogação global de sessões e validação de logs de auditoria
+    // 6. Pacote A: Acervo editorial + Escalonamento real (MUNICIPAL -> ESTADUAL) + Aprovação
+    let acervo_resp = send_http(
+        addr,
+        "GET",
+        "/api/v1/noticias/acervo",
+        &[("Cookie", &redator_cookie)],
+        None,
+    )
+    .await;
+    assert_eq!(acervo_resp.status, StatusCode::OK.as_u16());
+    let acervo_json = acervo_resp.json();
+    assert!(acervo_json["noticias"]
+        .as_array()
+        .expect("lista acervo")
+        .iter()
+        .any(|n| n["id"].as_str() == Some(noticia_id.as_str())));
+
+    let solicitar_esc_resp = send_http(
+        addr,
+        "POST",
+        &format!("/api/v1/noticias/{}/escalonar", noticia_id),
+        &[("Cookie", &redator_cookie)],
+        Some(
+            &json!({
+                "escopo_origem": "MUNICIPAL",
+                "escopo_destino": "ESTADUAL",
+                "justificativa": "Alto engajamento comunitário verificado na pauta E2E."
+            })
+            .to_string(),
+        ),
+    )
+    .await;
+    assert_eq!(solicitar_esc_resp.status, StatusCode::OK.as_u16());
+    let solicitacao_id = solicitar_esc_resp.json()["solicitacao_id"]
+        .as_str()
+        .expect("solicitacao_id retornado")
+        .to_string();
+
+    // Cria liderança nacional com permissão de aprovar escalonamento (cargo_id = 2: lider_nacional)
+    let lider_nac_id = Uuid::new_v4();
+    let lider_nac_email = format!("lider.nac.{}@jornalfederado.org.br", lider_nac_id.simple());
+    sqlx::query(
+        r#"
+        INSERT INTO usuarios (
+            id, nome, email, senha_hash, cargo_id, escopo, ibge_codigo,
+            filiado_verificado, status, totp_habilitado
+        )
+        VALUES ($1, 'Líder Nacional E2E', $2, $3, 2, 'NACIONAL'::tipo_escopo, NULL, TRUE, 'ATIVO'::status_usuario, FALSE)
+        "#,
+    )
+    .bind(lider_nac_id)
+    .bind(&lider_nac_email)
+    .bind(&senha_hash)
+    .execute(&pool)
+    .await
+    .expect("inserir líder nacional");
+
+    let lider_nac_token = SessionManager::criar_sessao(
+        &pool,
+        lider_nac_id,
+        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        "E2E-Lider/1.0",
+    )
+    .await
+    .expect("sessão líder nacional");
+    let lider_nac_cookie = format!("jornal_session={}", lider_nac_token);
+
+    let fila_resp = send_http(
+        addr,
+        "GET",
+        "/api/v1/escalonamentos?status=PENDENTE",
+        &[("Cookie", &lider_nac_cookie)],
+        None,
+    )
+    .await;
+    assert_eq!(fila_resp.status, StatusCode::OK.as_u16());
+    assert!(fila_resp.json()["solicitacoes"]
+        .as_array()
+        .expect("fila escalonamentos")
+        .iter()
+        .any(|s| s["id"].as_str() == Some(solicitacao_id.as_str())));
+
+    let avaliar_resp = send_http(
+        addr,
+        "POST",
+        &format!("/api/v1/escalonamentos/{}/avaliar", solicitacao_id),
+        &[("Cookie", &lider_nac_cookie)],
+        Some(
+            &json!({
+                "aprovado": true,
+                "parecer_revisao": "Relevância estadual comprovada."
+            })
+            .to_string(),
+        ),
+    )
+    .await;
+    assert_eq!(avaliar_resp.status, StatusCode::OK.as_u16());
+    let avaliar_json = avaliar_resp.json();
+    assert_eq!(avaliar_json["novo_escopo"].as_str(), Some("ESTADUAL"));
+    assert_eq!(avaliar_json["novo_ibge_codigo"].as_str(), Some("35"));
+
+    // 7. Pacote A: Interruptor Modo Eleitoral (Lei nº 9.504/97) congela Hype no Feed e depois restaura
+    let ativar_eleitoral = send_http(
+        addr,
+        "POST",
+        "/api/v1/infra/modo-eleitoral",
+        &[("Cookie", &admin_cookie)],
+        Some(r#"{"ativo":true,"motivo":"Teste E2E de congelamento eleitoral Lei 9504"}"#),
+    )
+    .await;
+    assert_eq!(ativar_eleitoral.status, StatusCode::OK.as_u16());
+    assert_eq!(
+        ativar_eleitoral.json()["config"]["ativo"].as_bool(),
+        Some(true)
+    );
+
+    let feed_eleitoral = send_http(addr, "GET", "/api/v1/feed?uf=SP&limit=5", &[], None).await;
+    assert_eq!(feed_eleitoral.status, StatusCode::OK.as_u16());
+    assert_eq!(feed_eleitoral.header("x-cache"), Some("MISS"));
+    let feed_el_json = feed_eleitoral.json();
+    assert_eq!(feed_el_json["modo_eleitoral_ativo"].as_bool(), Some(true));
+    assert!(feed_el_json["noticias"][0]["hype_score"].is_null());
+
+    let desativar_eleitoral = send_http(
+        addr,
+        "POST",
+        "/api/v1/infra/modo-eleitoral",
+        &[("Cookie", &admin_cookie)],
+        Some(r#"{"ativo":false,"motivo":"Retorno à operação ordinária pós-teste E2E"}"#),
+    )
+    .await;
+    assert_eq!(desativar_eleitoral.status, StatusCode::OK.as_u16());
+
+    // 8. Pacote A: Provisionamento 2FA TOTP (setup + confirmar) e Painel de Auditoria
+    let setup_2fa_resp = send_http(
+        addr,
+        "POST",
+        "/api/v1/auth/2fa/setup",
+        &[("Cookie", &lider_nac_cookie)],
+        None,
+    )
+    .await;
+    assert_eq!(setup_2fa_resp.status, StatusCode::OK.as_u16());
+    let setup_2fa_json = setup_2fa_resp.json();
+    let secret_b32 = setup_2fa_json["secret_base32"]
+        .as_str()
+        .expect("secret_base32 retornado");
+    let secret_bytes = decodificar_base32_teste(secret_b32);
+    assert_eq!(secret_bytes.len(), 20);
+
+    let agora_setup = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("relogio valido")
+        .as_secs();
+    let codigo_confirmacao = CryptoService::gerar_totp_sha256(&secret_bytes, agora_setup / 30);
+
+    let confirmar_2fa_resp = send_http(
+        addr,
+        "POST",
+        "/api/v1/auth/2fa/confirmar",
+        &[("Cookie", &lider_nac_cookie)],
+        Some(&json!({ "codigo_totp": codigo_confirmacao }).to_string()),
+    )
+    .await;
+    assert_eq!(confirmar_2fa_resp.status, StatusCode::OK.as_u16());
+    let confirmar_json = confirmar_2fa_resp.json();
+    assert_eq!(
+        confirmar_json["recovery_codes"]
+            .as_array()
+            .expect("recovery_codes")
+            .len(),
+        8
+    );
+
+    let auditoria_resp = send_http(
+        addr,
+        "GET",
+        "/api/v1/infra/auditoria",
+        &[("Cookie", &admin_cookie)],
+        None,
+    )
+    .await;
+    assert_eq!(auditoria_resp.status, StatusCode::OK.as_u16());
+    let auditoria_json = auditoria_resp.json();
+    assert_eq!(auditoria_json["visao_global"].as_bool(), Some(true));
+    assert!(!auditoria_json["logs"]
+        .as_array()
+        .expect("logs auditoria")
+        .is_empty());
+
+    // 9. Revogação global de sessões e validação de logs de auditoria
     let revogar_resp = send_http(
         addr,
         "POST",
@@ -663,10 +926,20 @@ async fn fluxo_completo_login_2fa_noticia_voto_hype_e_rotacao() {
     assert_eq!(apos_revogacao.status, StatusCode::UNAUTHORIZED.as_u16());
 
     let audit_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM auditoria_logs WHERE acao IN ('ROTACAO_CHAVE_AES_TOTP', 'VERIFICACAO_2FA_SUCESSO', 'REVOGACAO_TODAS_SESSOES')",
+        r#"
+        SELECT COUNT(*) FROM auditoria_logs
+        WHERE acao IN (
+            'ROTACAO_CHAVE_AES_TOTP',
+            'VERIFICACAO_2FA_SUCESSO',
+            'ESCALONAMENTO_APROVADO',
+            'MODO_ELEITORAL_ALTERADO',
+            'ATIVACAO_2FA_TOTP',
+            'REVOGACAO_TODAS_SESSOES'
+        )
+        "#,
     )
     .fetch_one(&pool)
     .await
     .expect("consultar auditoria_logs");
-    assert!(audit_count >= 3);
+    assert!(audit_count >= 6);
 }

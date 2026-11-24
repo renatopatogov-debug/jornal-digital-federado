@@ -36,6 +36,29 @@ pub struct RevogarSessoesRequest {
     pub manter_sessao_atual: Option<bool>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Confirmar2faRequest {
+    pub codigo_totp: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Setup2faResponse {
+    pub sucesso: bool,
+    pub secret_base32: String,
+    pub otpauth_url: String,
+    pub algoritmo: &'static str,
+    pub digitos: u8,
+    pub periodo: u8,
+    pub mensagem: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Confirmar2faResponse {
+    pub sucesso: bool,
+    pub recovery_codes: Vec<String>,
+    pub mensagem: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
     pub sucesso: bool,
@@ -69,6 +92,7 @@ pub struct MeResponse {
     pub escopo: TipoEscopo,
     pub ibge_codigo: Option<String>,
     pub filiado_verificado: bool,
+    pub totp_habilitado: bool,
     pub status: StatusUsuario,
     pub cargo_slug: String,
     pub cargo_nome: String,
@@ -522,6 +546,178 @@ pub async fn revogar_todas_sessoes(
     ))
 }
 
+/// Inicia o provisionamento seguro de 2FA TOTP (etapa 1: cifra o segredo sem ativar `totp_habilitado`)
+pub async fn setup_2fa(
+    auth: AuthContext,
+    headers: HeaderMap,
+    State(pool): State<PgPool>,
+) -> Result<Json<Setup2faResponse>, AppError> {
+    let ja_habilitado: bool =
+        sqlx::query_scalar("SELECT totp_habilitado FROM usuarios WHERE id = $1")
+            .bind(auth.usuario_id)
+            .fetch_optional(&pool)
+            .await?
+            .ok_or_else(|| AppError::Unauthorized("Usuário não encontrado.".to_string()))?;
+
+    if ja_habilitado {
+        return Err(AppError::BadRequest(
+            "Segundo fator 2FA já está ativo nesta conta.".to_string(),
+        ));
+    }
+
+    let mut secret = [0u8; 20];
+    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut secret);
+
+    let crypto = CryptoService::from_env();
+    let envelope = crypto
+        .cifrar_envelope_aleatorio(&secret)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?;
+
+    sqlx::query("UPDATE usuarios SET totp_secret_cifrado = $1 WHERE id = $2")
+        .bind(envelope)
+        .bind(auth.usuario_id)
+        .execute(&pool)
+        .await?;
+
+    let secret_base32 = CryptoService::base32_encode(&secret);
+    let otpauth_url = format!(
+        "otpauth://totp/JornalFederado:{}?secret={}&issuer=JornalFederado&algorithm=SHA256&digits=6&period=30",
+        auth.email, secret_base32
+    );
+
+    let ip = extrair_ip_cliente(&headers);
+    let user_agent = extrair_user_agent(&headers);
+    let uid_str = auth.usuario_id.to_string();
+    SessionManager::registrar_auditoria(
+        &pool,
+        AuditoriaEvento {
+            ator_id: Some(auth.usuario_id),
+            acao: "SETUP_2FA_INICIADO",
+            entidade: "usuarios",
+            entidade_id: Some(&uid_str),
+            dados_novos: json!({ "algoritmo": "SHA256", "digitos": 6, "periodo": 30 }),
+            ip_origem: ip,
+            user_agent: Some(user_agent),
+        },
+    )
+    .await;
+
+    Ok(Json(Setup2faResponse {
+        sucesso: true,
+        secret_base32,
+        otpauth_url,
+        algoritmo: "SHA256",
+        digitos: 6,
+        periodo: 30,
+        mensagem: "Segredo TOTP gerado e cifrado em repouso. Confirme um código de 6 dígitos para ativar o 2FA."
+            .to_string(),
+    }))
+}
+
+/// Confirma um código TOTP de 6 dígitos (etapa 2), ativa `totp_habilitado` e emite 8 códigos de recuperação
+pub async fn confirmar_2fa(
+    auth: AuthContext,
+    headers: HeaderMap,
+    State(pool): State<PgPool>,
+    Json(payload): Json<Confirmar2faRequest>,
+) -> Result<Json<Confirmar2faResponse>, AppError> {
+    let codigo = payload.codigo_totp.trim();
+    if codigo.len() != 6 || !codigo.chars().all(|c| c.is_ascii_digit()) {
+        return Err(AppError::BadRequest(
+            "Informe um código TOTP numérico de exatamente 6 dígitos.".to_string(),
+        ));
+    }
+
+    let row = sqlx::query(
+        "SELECT totp_habilitado, totp_secret_cifrado FROM usuarios WHERE id = $1",
+    )
+    .bind(auth.usuario_id)
+    .fetch_optional(&pool)
+    .await?
+    .ok_or_else(|| AppError::Unauthorized("Usuário não encontrado.".to_string()))?;
+
+    let totp_habilitado: bool = row.try_get("totp_habilitado")?;
+    let totp_secret_cifrado: Option<Vec<u8>> = row.try_get("totp_secret_cifrado")?;
+
+    if totp_habilitado {
+        return Err(AppError::BadRequest(
+            "Segundo fator 2FA já foi confirmado e ativado nesta conta.".to_string(),
+        ));
+    }
+
+    let Some(envelope) = totp_secret_cifrado else {
+        return Err(AppError::BadRequest(
+            "Nenhum segredo TOTP pendente. Inicie o provisionamento em /api/v1/auth/2fa/setup primeiro."
+                .to_string(),
+        ));
+    };
+
+    let crypto = CryptoService::from_env();
+    let crypto_anterior = CryptoService::previous_from_env();
+    let (secret, _) = crypto
+        .decifrar_com_fallback(&envelope, crypto_anterior.as_ref())
+        .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?;
+
+    let agora = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!(e)))?
+        .as_secs();
+
+    if !CryptoService::verificar_totp_sha256(&secret, codigo, agora) {
+        return Err(AppError::BadRequest(
+            "Código TOTP inválido. Verifique o aplicativo autenticador (SHA-256 / 30s) e tente novamente."
+                .to_string(),
+        ));
+    }
+
+    let recovery_codes = CryptoService::gerar_codigos_recuperacao();
+    let recovery_hashes: Vec<String> = recovery_codes
+        .iter()
+        .map(|c| CryptoService::hash_token_sha256(c))
+        .collect();
+
+    sqlx::query(
+        r#"
+        UPDATE usuarios
+        SET totp_habilitado = TRUE,
+            recovery_codes_hashes = $1
+        WHERE id = $2
+        "#,
+    )
+    .bind(&recovery_hashes)
+    .bind(auth.usuario_id)
+    .execute(&pool)
+    .await?;
+
+    let ip = extrair_ip_cliente(&headers);
+    let user_agent = extrair_user_agent(&headers);
+    let uid_str = auth.usuario_id.to_string();
+    SessionManager::registrar_auditoria(
+        &pool,
+        AuditoriaEvento {
+            ator_id: Some(auth.usuario_id),
+            acao: "ATIVACAO_2FA_TOTP",
+            entidade: "usuarios",
+            entidade_id: Some(&uid_str),
+            dados_novos: json!({
+                "totp_habilitado": true,
+                "recovery_codes_emitidos": recovery_codes.len()
+            }),
+            ip_origem: ip,
+            user_agent: Some(user_agent),
+        },
+    )
+    .await;
+
+    Ok(Json(Confirmar2faResponse {
+        sucesso: true,
+        recovery_codes,
+        mensagem:
+            "Segundo fator 2FA TOTP ativado com sucesso! Guarde os códigos de recuperação em local seguro."
+                .to_string(),
+    }))
+}
+
 /// Retorna a identidade, cargo e permissões territoriais da sessão autenticada via cookie HTTP-Only
 pub async fn me(auth: AuthContext) -> Json<MeResponse> {
     Json(MeResponse {
@@ -532,6 +728,7 @@ pub async fn me(auth: AuthContext) -> Json<MeResponse> {
         escopo: auth.escopo,
         ibge_codigo: auth.ibge_codigo,
         filiado_verificado: auth.filiado_verificado,
+        totp_habilitado: auth.totp_habilitado,
         status: auth.status,
         cargo_slug: auth.cargo.slug,
         cargo_nome: auth.cargo.nome,

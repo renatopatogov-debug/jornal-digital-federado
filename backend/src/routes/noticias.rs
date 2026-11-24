@@ -61,6 +61,47 @@ pub struct EscalonamentoResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct AcervoNoticiaItem {
+    pub id: String,
+    pub titulo: String,
+    pub slug: String,
+    pub escopo: TipoEscopo,
+    pub ibge_codigo: Option<String>,
+    pub uf: Option<String>,
+    pub territorio_nome: Option<String>,
+    pub formato: TipoFormatoMateria,
+    pub status: StatusNoticia,
+    pub hype_score: f64,
+    pub publicado_em: Option<String>,
+    pub criado_em: String,
+    pub escalonamento_pendente_destino: Option<TipoEscopo>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AcervoEditorialResponse {
+    pub sucesso: bool,
+    pub total_itens: usize,
+    pub noticias: Vec<AcervoNoticiaItem>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct AcervoNoticiaRow {
+    id: Uuid,
+    titulo: String,
+    slug: String,
+    escopo: TipoEscopo,
+    ibge_codigo: Option<String>,
+    uf: Option<String>,
+    territorio_nome: Option<String>,
+    formato: TipoFormatoMateria,
+    status: StatusNoticia,
+    hype_score: f64,
+    publicado_em: Option<DateTime<Utc>>,
+    criado_em: DateTime<Utc>,
+    escalonamento_pendente_destino: Option<TipoEscopo>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct NoticiaDetalheItem {
     pub id: String,
     pub titulo: String,
@@ -300,6 +341,12 @@ pub async fn criar_noticia(
     .fetch_one(&pool)
     .await?;
 
+    if publicar {
+        crate::services::redis_cache::RedisService::global()
+            .invalidar_cache_feed()
+            .await;
+    }
+
     Ok(Json(CriarNoticiaResponse {
         sucesso: true,
         noticia_id,
@@ -356,6 +403,19 @@ pub async fn solicitar_escalonamento(
 
     auth.validar_jurisdicao_alvo(&noticia_escopo, noticia_ibge.as_deref())?;
 
+    let ja_pendente: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM solicitacoes_escalonamento WHERE noticia_id = $1 AND status = 'PENDENTE')",
+    )
+    .bind(noticia_id)
+    .fetch_one(&pool)
+    .await?;
+
+    if ja_pendente {
+        return Err(AppError::BadRequest(
+            "Já existe uma solicitação de escalonamento pendente para esta matéria.".to_string(),
+        ));
+    }
+
     let solicitacao_id: Uuid = sqlx::query_scalar(
         r#"
         INSERT INTO solicitacoes_escalonamento (
@@ -378,5 +438,77 @@ pub async fn solicitar_escalonamento(
         solicitacao_id,
         mensagem: "Solicitação de escalonamento editorial registrada para avaliação da instância superior."
             .to_string(),
+    }))
+}
+
+pub async fn listar_acervo_editorial(
+    auth: AuthContext,
+    State(pool): State<PgPool>,
+) -> Result<Json<AcervoEditorialResponse>, AppError> {
+    let prefixo_uf = match auth.escopo {
+        TipoEscopo::Estadual => Some(format!(
+            "{}%",
+            auth.ibge_codigo.as_deref().unwrap_or("__")
+        )),
+        _ => None,
+    };
+    let ibge_exato = match auth.escopo {
+        TipoEscopo::Municipal => auth.ibge_codigo.clone(),
+        _ => None,
+    };
+    let is_nacional = auth.escopo == TipoEscopo::Nacional;
+
+    let rows = sqlx::query_as::<_, AcervoNoticiaRow>(
+        r#"
+        SELECT n.id, n.titulo, n.slug, n.escopo,
+               n.ibge_codigo, t.uf::text AS uf, t.nome AS territorio_nome,
+               n.formato, n.status, n.hype_score::float8 AS hype_score,
+               n.publicado_em, n.criado_em,
+               se.escopo_destino AS escalonamento_pendente_destino
+        FROM noticias n
+        LEFT JOIN territorios t ON n.ibge_codigo = t.codigo_ibge
+        LEFT JOIN LATERAL (
+            SELECT escopo_destino
+            FROM solicitacoes_escalonamento s
+            WHERE s.noticia_id = n.id AND s.status = 'PENDENTE'
+            ORDER BY s.criado_em DESC
+            LIMIT 1
+        ) se ON TRUE
+        WHERE ($1::bool = TRUE)
+           OR ($2::text IS NOT NULL AND n.ibge_codigo LIKE $2)
+           OR ($3::text IS NOT NULL AND n.ibge_codigo = $3)
+        ORDER BY n.criado_em DESC
+        LIMIT 50
+        "#,
+    )
+    .bind(is_nacional)
+    .bind(prefixo_uf.as_deref())
+    .bind(ibge_exato.as_deref())
+    .fetch_all(&pool)
+    .await?;
+
+    let noticias: Vec<AcervoNoticiaItem> = rows
+        .into_iter()
+        .map(|r| AcervoNoticiaItem {
+            id: r.id.to_string(),
+            titulo: r.titulo,
+            slug: r.slug,
+            escopo: r.escopo,
+            ibge_codigo: r.ibge_codigo,
+            uf: r.uf,
+            territorio_nome: r.territorio_nome,
+            formato: r.formato,
+            status: r.status,
+            hype_score: r.hype_score,
+            publicado_em: r.publicado_em.map(|d| d.to_rfc3339()),
+            criado_em: r.criado_em.to_rfc3339(),
+            escalonamento_pendente_destino: r.escalonamento_pendente_destino,
+        })
+        .collect();
+
+    Ok(Json(AcervoEditorialResponse {
+        sucesso: true,
+        total_itens: noticias.len(),
+        noticias,
     }))
 }

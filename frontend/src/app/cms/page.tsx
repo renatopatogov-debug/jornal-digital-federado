@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   PenTool,
   Send,
@@ -24,6 +24,13 @@ import {
   Flame,
   Layers,
   LogOut,
+  Scale,
+  KeyRound,
+  History,
+  RefreshCw,
+  XCircle,
+  Laptop,
+  Lock,
 } from "lucide-react";
 import { CardNoticia } from "@/components/CardNoticia";
 import { PlayerMultimidia } from "@/components/PlayerMultimidia";
@@ -61,16 +68,63 @@ interface MateriaAcervo {
   titulo: string;
   slug: string;
   escopo: "MUNICIPAL" | "ESTADUAL" | "NACIONAL";
-  ibge_codigo?: string;
+  ibge_codigo?: string | null;
   formato: "TEXTO" | "VIDEO" | "AUDIO" | "IMPRESSO_PDF";
-  status: "PUBLICADO" | "RASCUNHO";
+  status: "PUBLICADO" | "RASCUNHO" | "EM_REVISAO" | "ARQUIVADO" | "REJEITADO";
   hype_score: number;
-  publicado_em: string;
-  escalonamento_solicitado?: "ESTADUAL" | "NACIONAL";
+  publicado_em?: string | null;
+  escalonamento_solicitado?: "MUNICIPAL" | "ESTADUAL" | "NACIONAL" | null;
+}
+
+interface SolicitacaoEscalonamentoItem {
+  id: string;
+  noticia_id: string;
+  noticia_titulo: string;
+  noticia_slug: string;
+  noticia_ibge_codigo: string | null;
+  solicitante_nome: string;
+  escopo_origem: "MUNICIPAL" | "ESTADUAL" | "NACIONAL";
+  escopo_destino: "MUNICIPAL" | "ESTADUAL" | "NACIONAL";
+  status: "PENDENTE" | "APROVADO" | "REJEITADO";
+  justificativa: string;
+  parecer_revisao: string | null;
+  avaliado_por_nome: string | null;
+  criado_em: string;
+  avaliado_em: string | null;
+}
+
+interface ModoEleitoralState {
+  ativo: boolean;
+  banner_obrigatorio: boolean;
+  banner_texto: string;
+  freeze_hype: boolean;
+  motivo: string;
+}
+
+interface SessaoAtivaItem {
+  ip_origem: string;
+  user_agent: string;
+  criado_em: string;
+  expira_em: string;
+  ultimo_acesso: string;
+  sessao_atual: boolean;
+}
+
+interface AuditoriaLogItem {
+  id: number;
+  ator_id: string | null;
+  ator_nome: string | null;
+  acao: string;
+  entidade: string;
+  entidade_id: string | null;
+  ip_origem: string;
+  criado_em: string;
 }
 
 export default function CMSPage() {
-  const [abaAtiva, setAbaAtiva] = useState<"redigir" | "escalonamento" | "governanca">("redigir");
+  const [abaAtiva, setAbaAtiva] = useState<
+    "redigir" | "escalonamento" | "governanca" | "seguranca"
+  >("redigir");
   const [sessaoAtual, setSessaoAtual] = useState<SessaoUsuario | null>(null);
   const [carregandoSessao, setCarregandoSessao] = useState<boolean>(true);
   const [saindo, setSaindo] = useState<boolean>(false);
@@ -130,16 +184,140 @@ export default function CMSPage() {
   const [liderDissidenteAlvo, setLiderDissidenteAlvo] = useState("");
   const [motivoKillSwitch, setMotivoKillSwitch] = useState("");
 
+  // Estados do Pacote A: Fila de Escalonamento, Modo Eleitoral, 2FA, Sessões e Auditoria
+  const [filaEscalonamento, setFilaEscalonamento] = useState<SolicitacaoEscalonamentoItem[]>([]);
+  const [parecerPorSolicitacao, setParecerPorSolicitacao] = useState<Record<string, string>>({});
+  const [avaliandoId, setAvaliandoId] = useState<string | null>(null);
+
+  const [modoEleitoral, setModoEleitoral] = useState<ModoEleitoralState>({
+    ativo: false,
+    banner_obrigatorio: true,
+    banner_texto:
+      "MODO ELEITORAL ATIVO (Lei nº 9.504/97): Ordenação algorítmica Hype suspensa. Exibição estritamente cronológica.",
+    freeze_hype: false,
+    motivo: "Operação ordinária.",
+  });
+  const [motivoModoEleitoral, setMotivoModoEleitoral] = useState(
+    "Adequação ao calendário eleitoral oficial (Lei nº 9.504/97)."
+  );
+  const [salvandoModoEleitoral, setSalvandoModoEleitoral] = useState(false);
+
+  const [setup2faDados, setSetup2faDados] = useState<{
+    secret_base32: string;
+    otpauth_url: string;
+  } | null>(null);
+  const [codigoConfirmacao2fa, setCodigoConfirmacao2fa] = useState("");
+  const [codigosRecuperacaoGerados, setCodigosRecuperacaoGerados] = useState<string[] | null>(
+    null
+  );
+  const [processando2fa, setProcessando2fa] = useState(false);
+
+  const [sessoesAtivas, setSessoesAtivas] = useState<SessaoAtivaItem[]>([]);
+  const [logsAuditoria, setLogsAuditoria] = useState<AuditoriaLogItem[]>([]);
+  const [visaoGlobalAuditoria, setVisaoGlobalAuditoria] = useState(false);
+  const [carregandoPainelSeguranca, setCarregandoPainelSeguranca] = useState(false);
+
+  const carregarDadosOperacionais = useCallback(async () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    setCarregandoPainelSeguranca(true);
+    try {
+      const [acervoRes, escRes, eleitoralRes, sessoesRes, audRes] = await Promise.allSettled([
+        fetch(`${apiUrl}/api/v1/noticias/acervo`, { credentials: "include", cache: "no-store" }),
+        fetch(`${apiUrl}/api/v1/escalonamentos`, { credentials: "include", cache: "no-store" }),
+        fetch(`${apiUrl}/api/v1/infra/modo-eleitoral`, {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch(`${apiUrl}/api/v1/auth/sessoes`, { credentials: "include", cache: "no-store" }),
+        fetch(`${apiUrl}/api/v1/infra/auditoria`, { credentials: "include", cache: "no-store" }),
+      ]);
+
+      if (acervoRes.status === "fulfilled" && acervoRes.value.ok) {
+        const data: {
+          noticias?: Array<{
+            id: string;
+            titulo: string;
+            slug: string;
+            escopo: "MUNICIPAL" | "ESTADUAL" | "NACIONAL";
+            ibge_codigo?: string | null;
+            formato: "TEXTO" | "VIDEO" | "AUDIO" | "IMPRESSO_PDF";
+            status: "PUBLICADO" | "RASCUNHO" | "EM_REVISAO" | "ARQUIVADO" | "REJEITADO";
+            hype_score: number;
+            publicado_em?: string | null;
+            escalonamento_pendente_destino?: "MUNICIPAL" | "ESTADUAL" | "NACIONAL" | null;
+          }>;
+        } | null = await acervoRes.value.json().catch(() => null);
+        if (data?.noticias) {
+          setAcervo(
+            data.noticias.map((n) => ({
+              id: n.id,
+              titulo: n.titulo,
+              slug: n.slug,
+              escopo: n.escopo,
+              ibge_codigo: n.ibge_codigo,
+              formato: n.formato,
+              status: n.status,
+              hype_score: n.hype_score,
+              publicado_em: n.publicado_em,
+              escalonamento_solicitado: n.escalonamento_pendente_destino ?? null,
+            }))
+          );
+        }
+      }
+
+      if (escRes.status === "fulfilled" && escRes.value.ok) {
+        const data: { solicitacoes?: SolicitacaoEscalonamentoItem[] } | null = await escRes.value
+          .json()
+          .catch(() => null);
+        if (data?.solicitacoes) {
+          setFilaEscalonamento(data.solicitacoes);
+        }
+      }
+
+      if (eleitoralRes.status === "fulfilled" && eleitoralRes.value.ok) {
+        const data: { config?: ModoEleitoralState } | null = await eleitoralRes.value
+          .json()
+          .catch(() => null);
+        if (data?.config) {
+          setModoEleitoral(data.config);
+        }
+      }
+
+      if (sessoesRes.status === "fulfilled" && sessoesRes.value.ok) {
+        const data: { sessoes?: SessaoAtivaItem[] } | null = await sessoesRes.value
+          .json()
+          .catch(() => null);
+        if (data?.sessoes) {
+          setSessoesAtivas(data.sessoes);
+        }
+      }
+
+      if (audRes.status === "fulfilled" && audRes.value.ok) {
+        const data: { visao_global?: boolean; logs?: AuditoriaLogItem[] } | null =
+          await audRes.value.json().catch(() => null);
+        if (data?.logs) {
+          setLogsAuditoria(data.logs);
+          setVisaoGlobalAuditoria(Boolean(data.visao_global));
+        }
+      }
+    } finally {
+      setCarregandoPainelSeguranca(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     buscarSessaoAtual(controller.signal).then((sessao) => {
       if (!controller.signal.aborted) {
         setSessaoAtual(sessao);
         setCarregandoSessao(false);
+        if (sessao) {
+          void carregarDadosOperacionais();
+        }
       }
     });
     return () => controller.abort();
-  }, []);
+  }, [carregarDadosOperacionais]);
 
   const handleLogoutCms = async () => {
     setSaindo(true);
@@ -358,6 +536,7 @@ export default function CMSPage() {
       setAcervo((prev) =>
         prev.map((m) => (m.id === id ? { ...m, escalonamento_solicitado: destino } : m))
       );
+      void carregarDadosOperacionais();
       setMensagemFeedback({
         tipo: "sucesso",
         texto:
@@ -368,6 +547,216 @@ export default function CMSPage() {
       setMensagemFeedback({
         tipo: "alerta",
         texto: "Erro de comunicação com a API ao solicitar escalonamento editorial.",
+      });
+    }
+  };
+
+  const handleAvaliarEscalonamento = async (solicitacaoId: string, aprovado: boolean) => {
+    setMensagemFeedback(null);
+    setAvaliandoId(solicitacaoId);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/escalonamentos/${solicitacaoId}/avaliar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          aprovado,
+          parecer_revisao: parecerPorSolicitacao[solicitacaoId]?.trim() || null,
+        }),
+      });
+      const data: { sucesso?: boolean; mensagem?: string } | null = await res
+        .json()
+        .catch(() => null);
+      if (!res.ok || !data?.sucesso) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Não foi possível avaliar a solicitação de escalonamento.",
+        });
+        return;
+      }
+      setMensagemFeedback({
+        tipo: "sucesso",
+        texto:
+          data.mensagem ||
+          (aprovado
+            ? "Escalonamento aprovado e escopo da matéria promovido!"
+            : "Solicitação de escalonamento rejeitada."),
+      });
+      await carregarDadosOperacionais();
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Erro de comunicação ao avaliar escalonamento editorial.",
+      });
+    } finally {
+      setAvaliandoId(null);
+    }
+  };
+
+  const handleAlternarModoEleitoral = async (novoAtivo: boolean) => {
+    setMensagemFeedback(null);
+    if (motivoModoEleitoral.trim().length < 5) {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Informe uma justificativa jurídica/operacional com pelo menos 5 caracteres.",
+      });
+      return;
+    }
+    setSalvandoModoEleitoral(true);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/infra/modo-eleitoral`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ativo: novoAtivo,
+          motivo: motivoModoEleitoral.trim(),
+          banner_texto: modoEleitoral.banner_texto,
+        }),
+      });
+      const data: {
+        sucesso?: boolean;
+        config?: ModoEleitoralState;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+      if (!res.ok || !data?.sucesso || !data.config) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Sem permissão ou falha ao atualizar o Modo Eleitoral.",
+        });
+        return;
+      }
+      setModoEleitoral(data.config);
+      setMensagemFeedback({
+        tipo: novoAtivo ? "alerta" : "sucesso",
+        texto: data.mensagem || "Modo Eleitoral atualizado com sucesso.",
+      });
+      await carregarDadosOperacionais();
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Falha de comunicação ao alternar o Modo Eleitoral.",
+      });
+    } finally {
+      setSalvandoModoEleitoral(false);
+    }
+  };
+
+  const handleIniciarSetup2fa = async () => {
+    setMensagemFeedback(null);
+    setProcessando2fa(true);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/auth/2fa/setup`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data: {
+        sucesso?: boolean;
+        secret_base32?: string;
+        otpauth_url?: string;
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+      if (!res.ok || !data?.sucesso || !data.secret_base32 || !data.otpauth_url) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Não foi possível iniciar o provisionamento 2FA TOTP.",
+        });
+        return;
+      }
+      setSetup2faDados({
+        secret_base32: data.secret_base32,
+        otpauth_url: data.otpauth_url,
+      });
+      setCodigosRecuperacaoGerados(null);
+      setMensagemFeedback({
+        tipo: "sucesso",
+        texto: data.mensagem || "Segredo TOTP gerado! Confirme um código de 6 dígitos.",
+      });
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Erro de comunicação ao iniciar o setup de 2FA.",
+      });
+    } finally {
+      setProcessando2fa(false);
+    }
+  };
+
+  const handleConfirmarSetup2fa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMensagemFeedback(null);
+    setProcessando2fa(true);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/auth/2fa/confirmar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ codigo_totp: codigoConfirmacao2fa.trim() }),
+      });
+      const data: {
+        sucesso?: boolean;
+        recovery_codes?: string[];
+        mensagem?: string;
+      } | null = await res.json().catch(() => null);
+      if (!res.ok || !data?.sucesso) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Código TOTP inválido.",
+        });
+        return;
+      }
+      setCodigosRecuperacaoGerados(data.recovery_codes ?? []);
+      setSetup2faDados(null);
+      setCodigoConfirmacao2fa("");
+      setSessaoAtual((prev) => (prev ? { ...prev, totp_habilitado: true } : prev));
+      setMensagemFeedback({
+        tipo: "sucesso",
+        texto: data.mensagem || "2FA TOTP ativado com sucesso!",
+      });
+      await carregarDadosOperacionais();
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Erro de comunicação ao confirmar o 2FA.",
+      });
+    } finally {
+      setProcessando2fa(false);
+    }
+  };
+
+  const handleRevogarOutrasSessoes = async () => {
+    setMensagemFeedback(null);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080";
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/auth/sessoes/revogar-todas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ manter_sessao_atual: true }),
+      });
+      const data: { sucesso?: boolean; mensagem?: string } | null = await res
+        .json()
+        .catch(() => null);
+      if (!res.ok || !data?.sucesso) {
+        setMensagemFeedback({
+          tipo: "alerta",
+          texto: data?.mensagem || "Não foi possível revogar as demais sessões.",
+        });
+        return;
+      }
+      setMensagemFeedback({
+        tipo: "sucesso",
+        texto: data.mensagem || "Demais sessões revogadas com sucesso.",
+      });
+      await carregarDadosOperacionais();
+    } catch {
+      setMensagemFeedback({
+        tipo: "alerta",
+        texto: "Erro de comunicação ao revogar sessões.",
       });
     }
   };
@@ -533,7 +922,7 @@ export default function CMSPage() {
         </div>
 
         {/* Navegação por Abas */}
-        <div className="flex items-center bg-slate-200/80 p-1 rounded-xl self-start">
+        <div className="flex flex-wrap items-center bg-slate-200/80 p-1 rounded-xl self-start gap-1">
           <button
             type="button"
             onClick={() => setAbaAtiva("redigir")}
@@ -569,6 +958,18 @@ export default function CMSPage() {
           >
             <Users className="w-3.5 h-3.5" />
             3. Governança & Filiados
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva("seguranca")}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+              abaAtiva === "seguranca"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5" />
+            4. Segurança, Eleitoral & Auditoria
           </button>
         </div>
       </div>
@@ -695,7 +1096,11 @@ export default function CMSPage() {
                     </label>
                     <select
                       value={escopo}
-                      onChange={(e: any) => handleEscopoChange(e.target.value)}
+                      onChange={(e) =>
+                        handleEscopoChange(
+                          e.target.value as "MUNICIPAL" | "ESTADUAL" | "NACIONAL"
+                        )
+                      }
                       className="w-full px-3.5 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-destaque text-slate-900 bg-white text-sm font-medium"
                     >
                       <option value="MUNICIPAL">Municipal (Diretório Local — IBGE 7 dígitos)</option>
@@ -769,7 +1174,11 @@ export default function CMSPage() {
                     </label>
                     <select
                       value={formato}
-                      onChange={(e: any) => setFormato(e.target.value)}
+                      onChange={(e) =>
+                        setFormato(
+                          e.target.value as "TEXTO" | "VIDEO" | "AUDIO" | "IMPRESSO_PDF"
+                        )
+                      }
                       className="w-full px-3.5 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-destaque text-slate-900 bg-white text-sm font-medium"
                     >
                       <option value="TEXTO">Texto (Reportagem / Artigo)</option>
@@ -984,7 +1393,7 @@ export default function CMSPage() {
                       hype_score: 18.5,
                       publicado_em: new Date().toISOString(),
                     }}
-                    modoEleitoral={false}
+                    modoEleitoral={modoEleitoral.ativo}
                   />
                 </div>
 
@@ -1026,79 +1435,189 @@ export default function CMSPage() {
 
       {/* ABA 2: ACERVO & ESCALONAMENTO FEDERADO (MUNICIPAL -> ESTADUAL -> NACIONAL) */}
       {abaAtiva === "escalonamento" && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Acervo do Diretório & Escalonamento Federado
-            </h2>
-            <p className="text-xs text-slate-500">
-              Matérias locais com alto Hype podem ser indicadas pelo Redator Municipal para compor a vitrine Estadual ou Nacional.
-            </p>
+        <div className="space-y-6">
+          {/* Fila de Avaliação da Mesa Editora Superior */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Fila de Avaliação de Escalonamento Federado
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Promoção transacional em degraus estritos: Municipal → Estadual (UF) → Nacional.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void carregarDadosOperacionais()}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Atualizar Fila
+              </button>
+            </div>
+
+            {filaEscalonamento.length === 0 ? (
+              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200/80 rounded-xl p-4">
+                Nenhuma solicitação de escalonamento registrada para a sua jurisdição no momento.
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {filaEscalonamento.map((sol) => (
+                  <div key={sol.id} className="py-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                            sol.status === "PENDENTE"
+                              ? "bg-amber-100 text-amber-900"
+                              : sol.status === "APROVADO"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-rose-100 text-rose-800"
+                          }`}
+                        >
+                          {sol.status}
+                        </span>
+                        <span className="text-xs font-bold text-indigo-800 bg-indigo-50 px-2.5 py-0.5 rounded">
+                          {sol.escopo_origem} → {sol.escopo_destino}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          Solicitante: <strong>{sol.solicitante_nome}</strong>
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        {new Date(sol.criado_em).toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">{sol.noticia_titulo}</h3>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        Justificativa: {sol.justificativa}
+                      </p>
+                      {sol.parecer_revisao && (
+                        <p className="text-xs text-slate-500 mt-1 italic">
+                          Parecer ({sol.avaliado_por_nome || "Mesa Editora"}): {sol.parecer_revisao}
+                        </p>
+                      )}
+                    </div>
+
+                    {sol.status === "PENDENTE" &&
+                      sessaoAtual?.permissoes.pode_aprovar_escalonamento && (
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                          <input
+                            type="text"
+                            value={parecerPorSolicitacao[sol.id] || ""}
+                            onChange={(e) =>
+                              setParecerPorSolicitacao((prev) => ({
+                                ...prev,
+                                [sol.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Parecer editorial opcional para registro em auditoria..."
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-900"
+                          />
+                          <button
+                            type="button"
+                            disabled={avaliandoId === sol.id}
+                            onClick={() => void handleAvaliarEscalonamento(sol.id, true)}
+                            className="inline-flex items-center justify-center gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Aprovar Promoção
+                          </button>
+                          <button
+                            type="button"
+                            disabled={avaliandoId === sol.id}
+                            onClick={() => void handleAvaliarEscalonamento(sol.id, false)}
+                            className="inline-flex items-center justify-center gap-1.5 text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 px-3.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Rejeitar
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="divide-y divide-slate-100">
-            {acervo.map((item) => (
-              <div
-                key={item.id}
-                className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
-              >
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                        item.status === "PUBLICADO"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {item.status}
-                    </span>
-                    <span className="text-[11px] font-bold text-destaque bg-blue-50 px-2 py-0.5 rounded">
-                      {item.escopo} {item.ibge_codigo ? `• IBGE ${item.ibge_codigo}` : ""}
-                    </span>
-                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded flex items-center gap-1">
-                      <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
-                      {item.hype_score.toFixed(1)} Hype
-                    </span>
+          {/* Acervo Real da Jurisdição */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Acervo do Diretório & Indicação de Escalonamento
+              </h2>
+              <p className="text-xs text-slate-500">
+                Matérias locais podem ser escalonadas ao Diretório Estadual, e matérias estaduais podem ser escalonadas à Executiva Nacional.
+              </p>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {acervo.map((item) => (
+                <div
+                  key={item.id}
+                  className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                          item.status === "PUBLICADO"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                      <span className="text-[11px] font-bold text-destaque bg-blue-50 px-2 py-0.5 rounded">
+                        {item.escopo} {item.ibge_codigo ? `• IBGE ${item.ibge_codigo}` : ""}
+                      </span>
+                      <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Flame className="w-3 h-3 fill-amber-500 text-amber-500" />
+                        {item.hype_score.toFixed(1)} Hype
+                      </span>
+                    </div>
+
+                    <h3 className="text-base font-bold text-slate-900">{item.titulo}</h3>
+                    <p className="text-xs text-slate-400">Slug: /noticia/{item.slug}</p>
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900">{item.titulo}</h3>
-                  <p className="text-xs text-slate-400">Slug: /noticia/{item.slug}</p>
+                  <div className="flex items-center gap-2 self-start md:self-center">
+                    {item.escalonamento_solicitado ? (
+                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Pendente p/ Vitrine {item.escalonamento_solicitado}
+                      </span>
+                    ) : (
+                      <>
+                        {item.escopo === "MUNICIPAL" && (
+                          <button
+                            type="button"
+                            onClick={() => void handleSolicitarEscalonamento(item.id, "ESTADUAL")}
+                            className="flex items-center gap-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-3 py-2 rounded-lg transition-colors"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                            Escalonar p/ Estadual
+                          </button>
+                        )}
+                        {item.escopo === "ESTADUAL" && (
+                          <button
+                            type="button"
+                            onClick={() => void handleSolicitarEscalonamento(item.id, "NACIONAL")}
+                            className="flex items-center gap-1.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-3 py-2 rounded-lg transition-colors"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                            Escalonar p/ Nacional
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-2 self-start md:self-center">
-                  {item.escalonamento_solicitado ? (
-                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Indicado para Vitrine {item.escalonamento_solicitado}
-                    </span>
-                  ) : (
-                    <>
-                      {item.escopo === "MUNICIPAL" && (
-                        <button
-                          type="button"
-                          onClick={() => handleSolicitarEscalonamento(item.id, "ESTADUAL")}
-                          className="flex items-center gap-1.5 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-3 py-2 rounded-lg transition-colors"
-                        >
-                          <ArrowUpRight className="w-4 h-4" />
-                          Escalonar p/ Estadual
-                        </button>
-                      )}
-                      {item.escopo !== "NACIONAL" && (
-                        <button
-                          type="button"
-                          onClick={() => handleSolicitarEscalonamento(item.id, "NACIONAL")}
-                          className="flex items-center gap-1.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-3 py-2 rounded-lg transition-colors"
-                        >
-                          <ArrowUpRight className="w-4 h-4" />
-                          Escalonar p/ Nacional
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1220,9 +1739,279 @@ export default function CMSPage() {
                 type="submit"
                 className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-sm transition-colors"
               >
-                Executar Revogação em Cascata & Expurgar Sessões Redis
+                Executar Revogação em Cascata & Expurgar Sessões Ativas
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ABA 4: SEGURANÇA 2FA, INTERRUPTOR MODO ELEITORAL & AUDITORIA */}
+      {abaAtiva === "seguranca" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card 1: Interruptor Visual de Modo Eleitoral (Lei nº 9.504/97 — ADR D6) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Scale className="w-5 h-5 text-amber-600" />
+                    Modo Eleitoral (Lei nº 9.504/97 — ADR D6)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Congela a ordenação algorítmica Hype no feed público, oculta placares e fixa o banner jurídico obrigatório.
+                  </p>
+                </div>
+                <span
+                  className={`text-[11px] font-black uppercase px-3 py-1 rounded-full border ${
+                    modoEleitoral.ativo
+                      ? "bg-amber-100 text-amber-900 border-amber-300"
+                      : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  }`}
+                >
+                  {modoEleitoral.ativo ? "ATIVO (FREEZE)" : "ORDINÁRIO"}
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                <p className="font-semibold text-slate-700">
+                  Último motivo registrado: <span className="font-normal">{modoEleitoral.motivo}</span>
+                </p>
+                <p className="text-slate-500">Banner: {modoEleitoral.banner_texto}</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Justificativa Jurídica / Operacional para Auditoria *
+                </label>
+                <input
+                  type="text"
+                  value={motivoModoEleitoral}
+                  onChange={(e) => setMotivoModoEleitoral(e.target.value)}
+                  placeholder="Ex: Início do período defeso eleitoral conforme resolução TSE..."
+                  className="w-full px-3.5 py-2 rounded-lg border border-slate-300 text-sm text-slate-900"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  disabled={
+                    salvandoModoEleitoral ||
+                    !(
+                      sessaoAtual?.permissoes.pode_gerenciar_infra ||
+                      (sessaoAtual?.permissoes.pode_alterar_cargos &&
+                        sessaoAtual?.escopo === "NACIONAL")
+                    )
+                  }
+                  onClick={() => void handleAlternarModoEleitoral(!modoEleitoral.ativo)}
+                  className={`flex-1 font-bold py-2.5 px-4 rounded-xl text-xs transition-colors disabled:opacity-50 ${
+                    modoEleitoral.ativo
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : "bg-amber-600 hover:bg-amber-700 text-white"
+                  }`}
+                >
+                  {salvandoModoEleitoral
+                    ? "Gravando em configuracoes..."
+                    : modoEleitoral.ativo
+                    ? "Restaurar Operação Ordinária (Reativar Hype)"
+                    : "Ativar Modo Eleitoral (Congelar Hype Agora)"}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Restrito à Custódia Nacional de Infraestrutura (SuperAdmin) ou Presidência Executiva Nacional.
+              </p>
+            </div>
+
+            {/* Card 2: Setup Automático de 2FA TOTP SHA-256 */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <KeyRound className="w-5 h-5 text-destaque" />
+                    Segundo Fator 2FA TOTP (HMAC-SHA256)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Provisionamento em duas etapas com envelope cifrado AES-256-GCM e 8 códigos de recuperação de uso único.
+                  </p>
+                </div>
+                <span
+                  className={`text-[11px] font-black uppercase px-3 py-1 rounded-full border ${
+                    sessaoAtual?.totp_habilitado
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : "bg-slate-100 text-slate-700 border-slate-300"
+                  }`}
+                >
+                  {sessaoAtual?.totp_habilitado ? "2FA ATIVO" : "2FA INATIVO"}
+                </span>
+              </div>
+
+              {codigosRecuperacaoGerados && codigosRecuperacaoGerados.length > 0 && (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 space-y-2">
+                  <p className="text-xs font-bold text-amber-950">
+                    Guarde seus 8 códigos de recuperação (exibidos apenas uma vez):
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs font-bold text-slate-900">
+                    {codigosRecuperacaoGerados.map((cod) => (
+                      <span
+                        key={cod}
+                        className="bg-white border border-amber-200 rounded px-2 py-1 text-center"
+                      >
+                        {cod}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!sessaoAtual?.totp_habilitado && !setup2faDados && (
+                <button
+                  type="button"
+                  disabled={!sessaoAtual || processando2fa}
+                  onClick={() => void handleIniciarSetup2fa()}
+                  className="w-full bg-destaque hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition-colors disabled:opacity-50"
+                >
+                  {processando2fa
+                    ? "Gerando envelope AES-256-GCM..."
+                    : "Iniciar Provisionamento 2FA TOTP"}
+                </button>
+              )}
+
+              {setup2faDados && (
+                <form onSubmit={handleConfirmarSetup2fa} className="space-y-3">
+                  <div className="p-3 rounded-xl bg-slate-900 text-slate-100 text-xs space-y-1.5 font-mono break-all">
+                    <div>
+                      <span className="text-slate-400">Segredo Base32: </span>
+                      <span className="text-amber-300 font-bold">{setup2faDados.secret_base32}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-300">{setup2faDados.otpauth_url}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      required
+                      value={codigoConfirmacao2fa}
+                      onChange={(e) => setCodigoConfirmacao2fa(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Código de 6 dígitos"
+                      className="flex-1 px-3.5 py-2 rounded-lg border border-slate-300 text-sm font-mono text-slate-900"
+                    />
+                    <button
+                      type="submit"
+                      disabled={processando2fa || codigoConfirmacao2fa.length !== 6}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50"
+                    >
+                      Confirmar & Ativar
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {sessaoAtual?.totp_habilitado && !codigosRecuperacaoGerados && (
+                <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3.5">
+                  Esta conta já exige segundo fator TOTP SHA-256 em todos os logins administrativos.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Card 3: Sessões HTTP-Only Ativas & Trilha de Auditoria */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Laptop className="w-4 h-4 text-destaque" />
+                  Sessões HTTP-Only Ativas ({sessoesAtivas.length})
+                </h3>
+                {sessoesAtivas.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRevogarOutrasSessoes()}
+                    className="text-xs font-bold text-rose-700 hover:underline"
+                  >
+                    Encerrar outras sessões
+                  </button>
+                )}
+              </div>
+
+              {sessoesAtivas.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  Faça login editorial para inspecionar suas sessões ativas.
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {sessoesAtivas.map((s, idx) => (
+                    <div key={`${s.criado_em}-${idx}`} className="py-2.5 text-xs space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-semibold text-slate-800">{s.ip_origem}</span>
+                        {s.sessao_atual && (
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                            Sessão Atual
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-500 truncate">{s.user_agent}</p>
+                      <p className="text-[11px] text-slate-400">
+                        Último acesso: {new Date(s.ultimo_acesso).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <History className="w-4 h-4 text-destaque" />
+                    Trilha Imutável de Auditoria ({logsAuditoria.length})
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {visaoGlobalAuditoria
+                      ? "Visão global de custódia nacional (todos os diretórios)."
+                      : "Exibindo eventos autenticados da sua conta."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={carregandoPainelSeguranca}
+                  onClick={() => void carregarDadosOperacionais()}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Recarregar
+                </button>
+              </div>
+
+              {logsAuditoria.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  Nenhum registro de auditoria carregado nesta sessão.
+                </p>
+              ) : (
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 pr-1">
+                  {logsAuditoria.map((log) => (
+                    <div key={log.id} className="py-2.5 text-xs flex items-start justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {log.acao}
+                          </span>
+                          <span className="text-slate-500">em {log.entidade}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          Ator: {log.ator_nome || "Sistema / Pré-login"} • IP {log.ip_origem}
+                        </p>
+                      </div>
+                      <span className="text-[11px] text-slate-400 whitespace-nowrap">
+                        {new Date(log.criado_em).toLocaleString("pt-BR")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

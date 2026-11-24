@@ -1,7 +1,11 @@
+use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::models::{ModoEleitoralConfig, TipoEscopo, TipoFormatoMateria};
+use crate::services::redis_cache::RedisService;
 use axum::{
     extract::{Query, State},
+    http::{HeaderMap, HeaderName, HeaderValue},
+    response::IntoResponse,
     Json,
 };
 use chrono::{DateTime, Utc};
@@ -25,7 +29,7 @@ pub struct FeedQueryParams {
     pub incluir_nacional: Option<bool>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FeedResponse {
     pub modo_eleitoral_ativo: bool,
     pub banner_legal: Option<String>,
@@ -36,7 +40,7 @@ pub struct FeedResponse {
     pub noticias: Vec<NoticiaFeedItem>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NoticiaFeedItem {
     pub id: String,
     pub titulo: String,
@@ -102,7 +106,50 @@ fn normalizar_filtro(valor: Option<&String>) -> Option<String> {
 pub async fn get_feed(
     State(pool): State<PgPool>,
     Query(params): Query<FeedQueryParams>,
-) -> Result<Json<FeedResponse>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
+    let limit = params.limit.unwrap_or(LIMITE_PADRAO).clamp(1, LIMITE_MAXIMO);
+    let offset = params.offset.unwrap_or(0).clamp(0, OFFSET_MAXIMO);
+    let ibge = normalizar_filtro(params.ibge.as_ref());
+    let uf = normalizar_filtro(params.uf.as_ref());
+    let formato = normalizar_filtro(params.formato.as_ref());
+    let q_norm = normalizar_filtro(params.q.as_ref());
+    let termo_busca = q_norm.as_deref().map(|s| format!("%{}%", escapar_termo_like(s)));
+    let incluir_nacional = params.incluir_nacional.unwrap_or(false);
+
+    // 0. Tenta servir a partir do cache Redis 7 de baixa latência (TTL curto + invalidação por epoch)
+    let ttl_secs = AppConfig::feed_cache_ttl_from_env();
+    let redis = RedisService::global();
+    let cache_key = if ttl_secs > 0 {
+        redis.obter_epoch_feed().await.map(|epoch| {
+            format!(
+                "jornal:feed:v{}:ibge={}:uf={}:q={}:fmt={}:lim={}:off={}:nac={}",
+                epoch,
+                ibge.as_deref().unwrap_or("-"),
+                uf.as_deref().unwrap_or("-").to_ascii_uppercase(),
+                q_norm.as_deref().unwrap_or("-"),
+                formato.as_deref().unwrap_or("-").to_ascii_uppercase(),
+                limit,
+                offset,
+                incluir_nacional
+            )
+        })
+    } else {
+        None
+    };
+
+    if let Some(ref key) = cache_key {
+        if let Some(cached_json) = redis.get_string(key).await {
+            if let Ok(cached_feed) = serde_json::from_str::<FeedResponse>(&cached_json) {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    HeaderName::from_static("x-cache"),
+                    HeaderValue::from_static("HIT"),
+                );
+                return Ok((headers, Json(cached_feed)));
+            }
+        }
+    }
+
     // 1. Inspecionar Contrato Operacional do Modo Eleitoral (ADR D6)
     let config_val: Option<serde_json::Value> = sqlx::query_scalar(
         r#"SELECT valor FROM configuracoes WHERE chave = 'modo_eleitoral'"#,
@@ -121,15 +168,6 @@ pub async fn get_feed(
             }
         }
     }
-
-    let limit = params.limit.unwrap_or(LIMITE_PADRAO).clamp(1, LIMITE_MAXIMO);
-    let offset = params.offset.unwrap_or(0).clamp(0, OFFSET_MAXIMO);
-    let ibge = normalizar_filtro(params.ibge.as_ref());
-    let uf = normalizar_filtro(params.uf.as_ref());
-    let formato = normalizar_filtro(params.formato.as_ref());
-    let termo_busca = normalizar_filtro(params.q.as_ref())
-        .map(|s| format!("%{}%", escapar_termo_like(&s)));
-    let incluir_nacional = params.incluir_nacional.unwrap_or(false);
 
     // 2. Ordenação comutável pelo Modo Eleitoral (ADR D6)
     let ordenacao = if modo_eleitoral_ativo {
@@ -206,7 +244,7 @@ pub async fn get_feed(
         })
         .collect();
 
-    Ok(Json(FeedResponse {
+    let response_payload = FeedResponse {
         modo_eleitoral_ativo,
         banner_legal: banner_texto,
         total_itens: feed_items.len(),
@@ -214,7 +252,21 @@ pub async fn get_feed(
         offset,
         tem_mais,
         noticias: feed_items,
-    }))
+    };
+
+    if let Some(ref key) = cache_key {
+        if let Ok(serialized) = serde_json::to_string(&response_payload) {
+            let _ = redis.set_ex(key, ttl_secs, &serialized).await;
+        }
+    }
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("x-cache"),
+        HeaderValue::from_static("MISS"),
+    );
+
+    Ok((headers, Json(response_payload)))
 }
 
 #[cfg(test)]

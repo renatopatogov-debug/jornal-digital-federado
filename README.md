@@ -54,21 +54,37 @@ jornal-digital-federado/
 
 ---
 
-## 🚀 Como Iniciar o Projeto Localmente
+## 🚀 Deploy em 1 Comando (Full-Stack Docker)
+
+Para subir toda a plataforma (**PostgreSQL 16** com migrações e seeds automáticos + **Redis 7** para cache e rate-limiting distribuído + **API Rust/Axum** + **Portal Next.js 14 Standalone**) em um único comando:
+
+```bash
+docker compose up -d --build
+```
+
+Após a subida dos containers saudáveis (`healthy`):
+- **Portal & CMS Editorial (Next.js Standalone):** `http://localhost:3000` (`/cms` e `/auth/admin`)
+- **Core API (Rust/Axum):** `http://localhost:8080/health`
+- **Documentação Interativa OpenAPI 3.0.3:** `http://localhost:8080/api/docs`
+- **Métricas Prometheus:** `http://localhost:8080/metrics`
+
+> **Deploy em VPS / Render / Railway / Fly.io:**
+> - Utilize `backend/Dockerfile` apontando `DATABASE_URL`, `REDIS_URL`, `AES_256_GCM_MASTER_KEY`, `SESSION_SECRET_SALT`, `CORS_ALLOWED_ORIGINS`, `COOKIE_SECURE=true` e `TRUST_PROXY=true`.
+> - Utilize `frontend/Dockerfile` passando `--build-arg NEXT_PUBLIC_API_URL=https://api.seu-dominio.org.br`.
+> - Caso o Redis fique temporariamente indisponível, a API opera em **modo anti-queda (fail-open local)**, consultando o PostgreSQL diretamente e mantendo o rate-limit em memória.
+
+---
+
+## 🛠️ Como Executar em Modo Desenvolvimento Local
 
 ### Pré-requisitos
-- **PostgreSQL 16** (ou Docker Desktop rodando o `docker-compose.yml`)
+- **PostgreSQL 16** e **Redis 7** (via `docker compose up -d postgres redis`)
 - **Python 3.11+** (para o pipeline geográfico e scripts auxiliares)
-- **Rust Toolchain (1.75+)** (quando for compilar o backend Axum)
+- **Rust Toolchain (`1.99.0`)** e **Node.js 20+**
 
-### Passo 1: Subir a Infraestrutura (Banco e Cache)
-Se estiver utilizando Docker:
+### Passo 1: Subir apenas Banco e Cache
 ```bash
-docker compose up -d
-```
-Ou configure uma instância local do PostgreSQL 16 e crie o banco:
-```sql
-CREATE DATABASE jornal_federado;
+docker compose up -d postgres redis
 ```
 
 ### Passo 2: Configurar o Arquivo `.env`

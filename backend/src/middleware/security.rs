@@ -42,6 +42,8 @@ pub async fn security_headers_middleware(
     let is_sensitive_path = path.starts_with("/api/v1/auth")
         || path.starts_with("/api/v1/usuarios")
         || path.starts_with("/api/v1/infra")
+        || path.starts_with("/api/v1/escalonamentos")
+        || path == "/api/v1/noticias/acervo"
         || (is_state_changing && path.starts_with("/api/v1/noticias"));
 
     // Proteção CSRF para requisições mutáveis autenticadas via cookie HTTP-Only

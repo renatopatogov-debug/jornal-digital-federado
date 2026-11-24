@@ -33,6 +33,7 @@ pub fn construir_especificacao_openapi() -> Value {
             "schemas": {
                 "TipoEscopo": { "type": "string", "enum": ["NACIONAL", "ESTADUAL", "MUNICIPAL"] },
                 "StatusNoticia": { "type": "string", "enum": ["RASCUNHO", "EM_REVISAO", "PUBLICADO", "ARQUIVADO", "REJEITADO"] },
+                "StatusEscalonamento": { "type": "string", "enum": ["PENDENTE", "APROVADO", "REJEITADO"] },
                 "TipoFormatoMateria": { "type": "string", "enum": ["TEXTO", "VIDEO", "AUDIO", "IMPRESSO_PDF"] },
                 "ErrorResponse": {
                     "type": "object",
@@ -114,6 +115,30 @@ pub fn construir_especificacao_openapi() -> Value {
                     "properties": {
                         "chave_anterior": { "type": "string", "nullable": true }
                     }
+                },
+                "Confirmar2faRequest": {
+                    "type": "object",
+                    "required": ["codigo_totp"],
+                    "properties": {
+                        "codigo_totp": { "type": "string", "minLength": 6, "maxLength": 6 }
+                    }
+                },
+                "AvaliarEscalonamentoRequest": {
+                    "type": "object",
+                    "required": ["aprovado"],
+                    "properties": {
+                        "aprovado": { "type": "boolean" },
+                        "parecer_revisao": { "type": "string", "nullable": true }
+                    }
+                },
+                "AtualizarModoEleitoralRequest": {
+                    "type": "object",
+                    "required": ["ativo", "motivo"],
+                    "properties": {
+                        "ativo": { "type": "boolean" },
+                        "motivo": { "type": "string", "minLength": 5 },
+                        "banner_texto": { "type": "string", "nullable": true }
+                    }
                 }
             }
         },
@@ -192,6 +217,34 @@ pub fn construir_especificacao_openapi() -> Value {
                     }
                 }
             },
+            "/api/v1/auth/2fa/setup": {
+                "post": {
+                    "tags": ["Autenticação & Sessões"],
+                    "summary": "Inicia provisionamento seguro de 2FA TOTP (gera segredo Base32 e URI otpauth cifrado em repouso)",
+                    "security": [{ "cookieAuth": [] }],
+                    "responses": {
+                        "200": { "description": "Segredo TOTP preparado aguardando confirmação" },
+                        "400": { "description": "2FA já habilitado na conta" },
+                        "401": { "description": "Não autenticado" }
+                    }
+                }
+            },
+            "/api/v1/auth/2fa/confirmar": {
+                "post": {
+                    "tags": ["Autenticação & Sessões"],
+                    "summary": "Confirma código TOTP de 6 dígitos, ativa totp_habilitado e emite 8 códigos de recuperação",
+                    "security": [{ "cookieAuth": [] }],
+                    "requestBody": {
+                        "required": true,
+                        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Confirmar2faRequest" } } }
+                    },
+                    "responses": {
+                        "200": { "description": "2FA TOTP ativado e códigos de recuperação emitidos" },
+                        "400": { "description": "Código TOTP inválido ou setup não iniciado" },
+                        "401": { "description": "Não autenticado" }
+                    }
+                }
+            },
             "/api/v1/auth/logout": {
                 "post": {
                     "tags": ["Autenticação & Sessões"],
@@ -259,6 +312,17 @@ pub fn construir_especificacao_openapi() -> Value {
                     }
                 }
             },
+            "/api/v1/noticias/acervo": {
+                "get": {
+                    "tags": ["Redação & Editorial"],
+                    "summary": "Lista o acervo editorial (publicadas e rascunhos) sob a jurisdição territorial da sessão",
+                    "security": [{ "cookieAuth": [] }],
+                    "responses": {
+                        "200": { "description": "Acervo editorial retornado" },
+                        "401": { "description": "Não autenticado" }
+                    }
+                }
+            },
             "/api/v1/noticias/preview-sanitizado": {
                 "post": {
                     "tags": ["Redação & Editorial"],
@@ -312,6 +376,39 @@ pub fn construir_especificacao_openapi() -> Value {
                         "200": { "description": "Solicitação registrada" },
                         "403": { "description": "Sem permissão ou fora da jurisdição" },
                         "404": { "description": "Matéria não encontrada" }
+                    }
+                }
+            },
+            "/api/v1/escalonamentos": {
+                "get": {
+                    "tags": ["Redação & Editorial"],
+                    "summary": "Lista solicitações de escalonamento editorial na jurisdição do avaliador ou solicitante",
+                    "security": [{ "cookieAuth": [] }],
+                    "parameters": [
+                        { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/StatusEscalonamento" } }
+                    ],
+                    "responses": {
+                        "200": { "description": "Fila de solicitações de escalonamento" },
+                        "401": { "description": "Não autenticado" }
+                    }
+                }
+            },
+            "/api/v1/escalonamentos/{id}/avaliar": {
+                "post": {
+                    "tags": ["Redação & Editorial"],
+                    "summary": "Aprova ou rejeita escalonamento promovendo escopo e código IBGE em transação atômica",
+                    "security": [{ "cookieAuth": [] }],
+                    "parameters": [
+                        { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+                    ],
+                    "requestBody": {
+                        "required": true,
+                        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AvaliarEscalonamentoRequest" } } }
+                    },
+                    "responses": {
+                        "200": { "description": "Escalonamento avaliado e registrado em auditoria" },
+                        "403": { "description": "Sem permissão pode_aprovar_escalonamento ou fora da alçada" },
+                        "404": { "description": "Solicitação não encontrada" }
                     }
                 }
             },
@@ -380,6 +477,41 @@ pub fn construir_especificacao_openapi() -> Value {
                         "200": { "description": "Rotação concluída em transação atômica" },
                         "401": { "description": "Não autenticado" },
                         "403": { "description": "Requer privilégio pode_gerenciar_infra (SuperAdmin)" }
+                    }
+                }
+            },
+            "/api/v1/infra/modo-eleitoral": {
+                "get": {
+                    "tags": ["Governança & Infraestrutura"],
+                    "summary": "Obtém a configuração ativa da feature flag Modo Eleitoral (Lei nº 9.504/97)",
+                    "security": [{ "cookieAuth": [] }],
+                    "responses": {
+                        "200": { "description": "Estado atual do Modo Eleitoral" },
+                        "401": { "description": "Não autenticado" }
+                    }
+                },
+                "post": {
+                    "tags": ["Governança & Infraestrutura"],
+                    "summary": "Alterna o Modo Eleitoral (Freeze do Hype + Banner Legal) com log imutável",
+                    "security": [{ "cookieAuth": [] }],
+                    "requestBody": {
+                        "required": true,
+                        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AtualizarModoEleitoralRequest" } } }
+                    },
+                    "responses": {
+                        "200": { "description": "Modo Eleitoral atualizado" },
+                        "403": { "description": "Restrito à custódia ou presidência nacional" }
+                    }
+                }
+            },
+            "/api/v1/infra/auditoria": {
+                "get": {
+                    "tags": ["Governança & Infraestrutura"],
+                    "summary": "Lista os registros recentes da trilha imutável auditoria_logs",
+                    "security": [{ "cookieAuth": [] }],
+                    "responses": {
+                        "200": { "description": "Lista de eventos auditados" },
+                        "401": { "description": "Não autenticado" }
                     }
                 }
             }

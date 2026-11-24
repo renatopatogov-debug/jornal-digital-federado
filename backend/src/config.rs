@@ -13,6 +13,7 @@ pub struct AppConfig {
     pub rate_limit_votos_por_minuto: i32,
     pub rate_limit_global_per_minute: u32,
     pub rate_limit_auth_per_minute: u32,
+    pub feed_cache_ttl_seconds: u64,
     pub cors_allowed_origins: Vec<String>,
     pub cookie_secure: bool,
     pub cookie_same_site: String,
@@ -31,6 +32,13 @@ impl AppConfig {
         env::var("TRUST_PROXY")
             .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "true" | "1" | "yes"))
             .unwrap_or(false)
+    }
+
+    pub fn feed_cache_ttl_from_env() -> u64 {
+        env::var("FEED_CACHE_TTL_SECONDS")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .unwrap_or(20)
     }
 
     pub fn cookie_same_site_from_env() -> String {
@@ -93,6 +101,8 @@ impl AppConfig {
             .unwrap_or(15)
             .max(1);
 
+        let feed_cache_ttl_seconds = Self::feed_cache_ttl_from_env();
+
         let cors_allowed_origins = env::var("CORS_ALLOWED_ORIGINS")
             .unwrap_or_else(|_| "http://localhost:3000,http://127.0.0.1:3000".to_string())
             .split(',')
@@ -119,6 +129,7 @@ impl AppConfig {
             rate_limit_votos_por_minuto,
             rate_limit_global_per_minute,
             rate_limit_auth_per_minute,
+            feed_cache_ttl_seconds,
             cors_allowed_origins,
             cookie_secure,
             cookie_same_site,

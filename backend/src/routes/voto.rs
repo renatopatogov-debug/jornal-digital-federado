@@ -153,6 +153,10 @@ pub async fn submeter_voto(
 
     tx.commit().await?;
 
+    crate::services::redis_cache::RedisService::global()
+        .invalidar_cache_feed()
+        .await;
+
     Ok(Json(VotoResponse {
         sucesso: true,
         mensagem: "Voto persistido de forma imutável no ledger eleitoral.".to_string(),

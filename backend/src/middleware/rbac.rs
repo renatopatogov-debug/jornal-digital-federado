@@ -20,6 +20,7 @@ pub struct AuthContext {
     pub escopo: TipoEscopo,
     pub ibge_codigo: Option<String>,
     pub filiado_verificado: bool,
+    pub totp_habilitado: bool,
     pub status: StatusUsuario,
 }
 
@@ -31,6 +32,7 @@ struct AuthSessionRow {
     escopo: TipoEscopo,
     ibge_codigo: Option<String>,
     filiado_verificado: bool,
+    totp_habilitado: bool,
     status: StatusUsuario,
     cargo_id: i32,
     cargo_slug: String,
@@ -118,6 +120,7 @@ impl FromRequestParts<PgPool> for AuthContext {
                    u.escopo,
                    u.ibge_codigo,
                    u.filiado_verificado,
+                   u.totp_habilitado,
                    u.status,
                    c.id AS cargo_id,
                    c.slug AS cargo_slug,
@@ -188,6 +191,7 @@ impl FromRequestParts<PgPool> for AuthContext {
             escopo: row.escopo,
             ibge_codigo: row.ibge_codigo,
             filiado_verificado: row.filiado_verificado,
+            totp_habilitado: row.totp_habilitado,
             status: row.status,
         })
     }
@@ -300,6 +304,7 @@ mod tests {
             escopo,
             ibge_codigo: ibge.map(str::to_string),
             filiado_verificado: true,
+            totp_habilitado: false,
             status: StatusUsuario::Ativo,
         }
     }

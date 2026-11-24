@@ -4,9 +4,9 @@ services:
     container_name: jornal_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: jornal_federado
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-jornal_federado}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
@@ -17,7 +17,7 @@ services:
       - ./migrations/20261102000003_webauthn_passkeys.sql:/docker-entrypoint-initdb.d/03_passkeys.sql:ro
       - ./migrations/20261102000004_suporte_multimidia_e_paper_news.sql:/docker-entrypoint-initdb.d/04_multimidia.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d jornal_federado"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-jornal_federado}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -38,6 +38,61 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - jornal_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jornal_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8080
+      RUST_LOG: ${RUST_LOG:-info,jornal_backend=info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-jornal_federado}
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-20}
+      REDIS_URL: redis://redis:6379
+      FEED_CACHE_TTL_SECONDS: ${FEED_CACHE_TTL_SECONDS:-20}
+      AES_256_GCM_MASTER_KEY: ${AES_256_GCM_MASTER_KEY:-U0VNUEJBTkNBREFTRUdVUkFOQ0ExMjM0NTY3ODkwMTI=}
+      AES_256_GCM_PREVIOUS_MASTER_KEY: ${AES_256_GCM_PREVIOUS_MASTER_KEY:-}
+      SESSION_SECRET_SALT: ${SESSION_SECRET_SALT:-chave_secreta_longa_para_hashing_de_cookies_http_only_2026}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Strict}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      MAX_ATIVACAO_SEMANAL_LIDER_MUNICIPAL: ${MAX_ATIVACAO_SEMANAL_LIDER_MUNICIPAL:-50}
+      RATE_LIMIT_VOTOS_POR_MINUTO: ${RATE_LIMIT_VOTOS_POR_MINUTO:-10}
+      RATE_LIMIT_REQUESTS_PER_MINUTE: ${RATE_LIMIT_REQUESTS_PER_MINUTE:-120}
+      RATE_LIMIT_AUTH_POR_MINUTO: ${RATE_LIMIT_AUTH_POR_MINUTO:-15}
+    ports:
+      - "8080:8080"
+    networks:
+      - jornal_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    container_name: jornal_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - "3000:3000"
     networks:
       - jornal_network
 

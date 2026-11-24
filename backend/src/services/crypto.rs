@@ -246,6 +246,53 @@ impl CryptoService {
         Self::constant_time_eq(esperado_hex.as_bytes(), sig_hex.as_bytes())
     }
 
+    /// Codifica bytes em Base32 RFC 4648 sem padding (`=`) para URIs `otpauth://`
+    pub fn base32_encode(data: &[u8]) -> String {
+        const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        if data.is_empty() {
+            return String::new();
+        }
+        let mut out = String::with_capacity((data.len() * 8).div_ceil(5));
+        let mut buffer: u16 = 0;
+        let mut bits_left: u8 = 0;
+
+        for &byte in data {
+            buffer = (buffer << 8) | u16::from(byte);
+            bits_left += 8;
+            while bits_left >= 5 {
+                bits_left -= 5;
+                let index = ((buffer >> bits_left) & 0x1f) as usize;
+                out.push(ALPHABET[index] as char);
+            }
+        }
+        if bits_left > 0 {
+            let index = ((buffer << (5 - bits_left)) & 0x1f) as usize;
+            out.push(ALPHABET[index] as char);
+        }
+        out
+    }
+
+    /// Gera 8 códigos de recuperação de uso único (`XXXX-XXXX`) sem viés de módulo
+    pub fn gerar_codigos_recuperacao() -> Vec<String> {
+        const CHARSET: &[u8; 32] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let mut random_bytes = [0u8; 64];
+        rand::thread_rng().fill_bytes(&mut random_bytes);
+
+        random_bytes
+            .chunks_exact(8)
+            .map(|chunk| {
+                let mut code = String::with_capacity(9);
+                for (idx, &b) in chunk.iter().enumerate() {
+                    if idx == 4 {
+                        code.push('-');
+                    }
+                    code.push(CHARSET[(b & 0x1f) as usize] as char);
+                }
+                code
+            })
+            .collect()
+    }
+
     fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         if a.len() != b.len() {
             return false;
@@ -345,5 +392,20 @@ mod tests {
         assert!(!CryptoService::validar_token_desafio_2fa(&token, outro_uid, agora + 60));
         assert!(!CryptoService::validar_token_desafio_2fa(&token, uid, agora + 301));
         assert!(!CryptoService::validar_token_desafio_2fa("token:invalido:0000", uid, agora));
+    }
+
+    #[test]
+    fn base32_rfc4648_e_codigos_recuperacao() {
+        assert_eq!(CryptoService::base32_encode(b""), "");
+        assert_eq!(CryptoService::base32_encode(b"foo"), "MZXW6");
+        assert_eq!(CryptoService::base32_encode(b"foobar"), "MZXW6YTBOI");
+        assert_eq!(CryptoService::base32_encode(&[0xaa; 20]).len(), 32);
+
+        let codigos = CryptoService::gerar_codigos_recuperacao();
+        assert_eq!(codigos.len(), 8);
+        for c in &codigos {
+            assert_eq!(c.len(), 9);
+            assert_eq!(c.as_bytes()[4], b'-');
+        }
     }
 }

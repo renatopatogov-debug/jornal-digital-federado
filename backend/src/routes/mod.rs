@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod escalonamento;
 pub mod feed;
 pub mod health;
 pub mod infra;
@@ -35,6 +36,8 @@ pub fn build_api_router(pool: PgPool) -> Router {
         // Autenticação, 2FA, Auditoria & Sessões HTTP-Only
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/2fa/verify", post(auth::verify_2fa))
+        .route("/api/v1/auth/2fa/setup", post(auth::setup_2fa))
+        .route("/api/v1/auth/2fa/confirmar", post(auth::confirmar_2fa))
         .route("/api/v1/auth/logout", post(auth::logout))
         .route("/api/v1/auth/me", get(auth::me))
         .route("/api/v1/auth/sessoes", get(auth::listar_sessoes))
@@ -45,13 +48,22 @@ pub fn build_api_router(pool: PgPool) -> Router {
         // Governança RBAC & Ativações
         .route("/api/v1/usuarios/ativar", post(usuarios::ativar_filiado))
         .route("/api/v1/usuarios/revogar-lote", post(usuarios::revogar_lote))
-        // Infraestrutura & Rotação de Chaves AES-256-GCM
+        // Infraestrutura, Modo Eleitoral (ADR D6), Auditoria & Rotação AES-256-GCM
         .route(
             "/api/v1/infra/rotacionar-chaves-totp",
             post(infra::rotacionar_chaves_totp),
         )
+        .route(
+            "/api/v1/infra/modo-eleitoral",
+            get(infra::obter_modo_eleitoral).post(infra::atualizar_modo_eleitoral),
+        )
+        .route("/api/v1/infra/auditoria", get(infra::listar_auditoria))
         // Redação, Sanitização Ammonia & Escalonamento Editorial
         .route("/api/v1/noticias", post(noticias::criar_noticia))
+        .route(
+            "/api/v1/noticias/acervo",
+            get(noticias::listar_acervo_editorial),
+        )
         .route(
             "/api/v1/noticias/preview-sanitizado",
             post(noticias::preview_sanitizado),
@@ -63,6 +75,14 @@ pub fn build_api_router(pool: PgPool) -> Router {
         .route(
             "/api/v1/noticias/:id/escalonar",
             post(noticias::solicitar_escalonamento),
+        )
+        .route(
+            "/api/v1/escalonamentos",
+            get(escalonamento::listar_escalonamentos),
+        )
+        .route(
+            "/api/v1/escalonamentos/:id/avaliar",
+            post(escalonamento::avaliar_escalonamento),
         )
         // Ledger de Votação (ADRs D1 e D2)
         .route("/api/v1/noticias/:id/voto", post(voto::submeter_voto))
@@ -88,10 +108,11 @@ pub fn build_app_router(pool: PgPool, config: &AppConfig) -> Router {
         .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
         .allow_credentials(true);
 
-    let rate_limiter = RateLimiter::new(
+    let rate_limiter = RateLimiter::new_with_redis(
         config.rate_limit_global_per_minute,
         config.rate_limit_auth_per_minute,
         config.trust_proxy,
+        Some(config.redis_url.as_str()),
     );
     let security_cfg = SecurityConfig::new(config.cors_allowed_origins.clone());
 

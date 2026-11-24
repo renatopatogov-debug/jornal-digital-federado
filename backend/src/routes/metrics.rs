@@ -1,3 +1,4 @@
+use crate::services::redis_cache::RedisService;
 use axum::{
     extract::State,
     http::{header, StatusCode},
@@ -38,6 +39,12 @@ pub async fn prometheus_metrics(State(pool): State<PgPool>) -> impl IntoResponse
         }
     }
 
+    let redis_gauge = if RedisService::global().ping().await {
+        1
+    } else {
+        0
+    };
+
     // 3. Montagem do payload de métricas no formato padrão Prometheus (OpenMetrics)
     let metrics_payload = format!(
         "# HELP jornal_noticias_publicadas_total Total de materias publicadas no portal\n\
@@ -49,10 +56,13 @@ pub async fn prometheus_metrics(State(pool): State<PgPool>) -> impl IntoResponse
          # HELP jornal_modo_eleitoral_status Status do interruptor eleitoral (1 = Ativo / Lei 9.504/97, 0 = Inativo)\n\
          # TYPE jornal_modo_eleitoral_status gauge\n\
          jornal_modo_eleitoral_status {}\n\n\
+         # HELP jornal_redis_up Status de conectividade com o cache e rate-limiter Redis 7 (1 = Online, 0 = Fallback Local)\n\
+         # TYPE jornal_redis_up gauge\n\
+         jornal_redis_up {}\n\n\
          # HELP jornal_backend_uptime_status Status de saude do backend (1 = Saudavel)\n\
          # TYPE jornal_backend_uptime_status gauge\n\
          jornal_backend_uptime_status 1\n",
-        total_noticias, total_votos, modo_eleitoral_gauge
+        total_noticias, total_votos, modo_eleitoral_gauge, redis_gauge
     );
 
     (

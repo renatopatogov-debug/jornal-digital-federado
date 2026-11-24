@@ -10,9 +10,11 @@ a flag global de compliance com a Lei nº 9.504/97.
 import os
 import sys
 import json
+import urllib.error
 import urllib.request
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def alternar_modo_eleitoral(ativo: bool, motivo: str = "Ajuste operacional de conformidade"):
     status_str = "ATIVADO (Freeze do Hype / Lei 9.504/97)" if ativo else "DESATIVADO (Operacao Ordinaria)"
@@ -22,21 +24,53 @@ def alternar_modo_eleitoral(ativo: bool, motivo: str = "Ajuste operacional de co
     print(f"[STATUS ALVO] Definindo Modo Eleitoral como: {status_str}")
     print(f"[JUSTIFICATIVA] {motivo}\n")
 
-    # Comando SQL oficial a ser executado no PostgreSQL 16
+    api_url = os.environ.get("API_URL", "http://127.0.0.1:8080").rstrip("/")
+    session_cookie = os.environ.get("SESSION_COOKIE", "").strip()
+
+    if session_cookie:
+        payload_bytes = json.dumps({"ativo": ativo, "motivo": motivo}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{api_url}/api/v1/infra/modo-eleitoral",
+            data=payload_bytes,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": session_cookie,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                dados = json.loads(resp.read().decode("utf-8"))
+                print(f"[API HTTP {resp.status}] {dados.get('mensagem', 'Atualizado na API.')}")
+        except urllib.error.URLError as exc:
+            print(f"[AVISO API] Nao foi possivel acionar {api_url}/api/v1/infra/modo-eleitoral: {exc}")
+
+    motivo_json_sql = json.dumps(motivo, ensure_ascii=False).replace("'", "''")
+    dados_auditoria_sql = json.dumps(
+        {"ativo": ativo, "freeze_hype": ativo, "motivo": motivo},
+        ensure_ascii=False,
+    ).replace("'", "''")
+    bool_sql = "true" if ativo else "false"
+
+    # Comando SQL oficial parametrizado/escapado para PostgreSQL 16
     comando_sql = f"""
-    UPDATE configuracoes 
+    UPDATE configuracoes
     SET valor = jsonb_set(
-        jsonb_set(valor, '{{ativo}}', '{str(ativo).lower()}'),
-        '{{motivo}}', '"{motivo}"'
+        jsonb_set(
+            jsonb_set(valor, '{{ativo}}', '{bool_sql}'),
+            '{{freeze_hype}}', '{bool_sql}'
+        ),
+        '{{motivo}}', '{motivo_json_sql}'::jsonb
     ),
     atualizado_em = NOW()
     WHERE chave = 'modo_eleitoral';
 
-    INSERT INTO auditoria_logs (acao, entidade, dados_novos, ip_origem)
+    INSERT INTO auditoria_logs (acao, entidade, entidade_id, dados_novos, ip_origem)
     VALUES (
         'MODO_ELEITORAL_ALTERADO',
         'configuracoes',
-        '{{"ativo": {str(ativo).lower()}, "motivo": "{motivo}"}}'::jsonb,
+        'modo_eleitoral',
+        '{dados_auditoria_sql}'::jsonb,
         '127.0.0.1'::inet
     );
     """
